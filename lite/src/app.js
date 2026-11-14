@@ -36,7 +36,18 @@ var RAW = [
   [join(arc(100, 95, 60, 62, 0, -360), bez([160, 95], [160, 170], [132, 240], [62, 268]))]
 ];
 var DIGITS = RAW.map(function (strokes) { return strokes.map(function (s) { return resample(s, 5); }); });
-var NAMES = ["אפס", "אחת", "שתיים", "שלוש", "ארבע", "חמש", "שש", "שבע", "שמונה", "תשע"];
+var NAMES = ["אפס", "אחת", "שתיים", "שלוש", "ארבע", "חמש", "שש", "שבע", "שמונה", "תשע", "עשר", "אחת עשרה", "שתים עשרה", "שלוש עשרה", "ארבע עשרה", "חמש עשרה", "שש עשרה", "שבע עשרה", "שמונה עשרה", "תשע עשרה", "עשרים"];
+var MAXN = 20, GAP = 230, NUMBERS = [], LOOPS = [];
+(function () {
+  for (var n = 0; n <= MAXN; n++) {
+    var S = [], L = [];
+    String(n).split("").forEach(function (ch, i) { var d = +ch; DIGITS[d].forEach(function (st) { S.push(st.map(function (p) { return [p[0] + i * GAP, p[1]]; })); L.push(d === 0); }); });
+    NUMBERS.push(S); LOOPS.push(L);
+  }
+})();
+var REV = NUMBERS.map(function (S) { return S.map(function (st) { return st.slice().reverse(); }); });
+function unitW(n) { return n >= 10 ? 200 + GAP : 200; }
+var OBJ_FOR = [5, 6, 3, 4, 1, 2, 7, 8, 9, 5, 3];
 var PHRASE = { draw: "עכשיו נצייר עם האצבע את הספרה", praise: "כל הכבוד, הצלחת!", prompt: "תבחרי מתוך המספרים את הספרה", oops: "אופס, בחרת בטעות את הספרה", retry: "בואי ננסה שוב ללחוץ על" };
 var COLORS = ["#6fbf9e", "#e07c97", "#eb9a5c", "#6fb3d8", "#9b82cf", "#e8b84a", "#c982b8", "#5fbdb3", "#e5806a", "#d9708a"];
 var PASTEL = ["#bfe8d4", "#f9b8c6", "#ffd3a8", "#bfe3f5", "#d8c8f2", "#ffe9a0", "#f0c4e6", "#b5ece6", "#ffc4b0", "#f6a9bd"];
@@ -45,9 +56,9 @@ var COLS = [1, 1, 2, 2, 2, 3, 3, 3, 3, 3];
 
 /* ---------- SVG art (no filters: they are too slow on old iPads) ---------- */
 function digitSVG(d) {
-  var pts = DIGITS[d].map(function (s) { return s.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" "); });
+  var pts = NUMBERS[d].map(function (s) { return s.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" "); });
   function L(w, c, extra) { return pts.map(function (p) { return '<polyline points="' + p + '" fill="none" stroke="' + c + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round" ' + (extra || "") + "/>"; }).join(""); }
-  return '<svg viewBox="-20 0 240 300">' + L(47, COLORS[d]) + L(44, PASTEL[d]) + L(2.6, COLORS[d], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
+  return '<svg viewBox="-20 0 ' + (unitW(d) + 40) + ' 300">' + L(47, COLORS[d % 10]) + L(44, PASTEL[d % 10]) + L(2.6, COLORS[d % 10], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
 }
 function FACE(x, y, k) {
   return '<circle cx="' + (x - 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/><circle cx="' + (x + 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/>' +
@@ -107,8 +118,8 @@ function addDeco(el) {
 }
 
 /* ---------- storage ---------- */
-var stars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-try { var sv = JSON.parse(localStorage.getItem("numstars") || "null"); if (sv && sv.length === 10) stars = sv; } catch (e) {}
+var stars = []; for (var si = 0; si < 21; si++) stars.push(0);
+try { var sv = JSON.parse(localStorage.getItem("numstars") || "null"); if (sv && sv.length) for (var sj = 0; sj < sv.length && sj < 21; sj++) stars[sj] = sv[sj] || 0; } catch (e) {}
 function saveStars() { try { localStorage.setItem("numstars", JSON.stringify(stars)); } catch (e) {} }
 
 /* ---------- sound: recorded files first, device voice as fallback ---------- */
@@ -195,7 +206,7 @@ document.addEventListener("click", unlockAudio, true);
 document.addEventListener("mousedown", unlockAudio, true);
 
 /* ---------- imported voice recordings (stored on this device only) ---------- */
-var VKEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "draw", "praise", "prompt", "oops", "retry"];
+var VKEYS = []; for (var vi = 0; vi <= 20; vi++) VKEYS.push(vi); VKEYS.push("draw", "praise", "prompt", "oops", "retry");
 function voiceGet(k) { try { return localStorage.getItem("voice_" + k); } catch (e) { return null; } }
 function voiceUrl(n) { return voiceGet(n) || ("audio/" + n + ".wav"); }
 var lastAudioErr = "-";
@@ -222,7 +233,7 @@ function importFiles(files, finished) {
   function store() {
     items.forEach(function (it) {
       var base = it.name.replace(/^.*\//, "").replace(/\.[^.]+$/, ""), ext = (it.name.match(/\.([^.]+)$/) || [, ""])[1].toLowerCase();
-      var isDigit = /^\d$/.test(base), okKey = isDigit || ["draw", "praise", "prompt", "oops", "retry"].indexOf(base) >= 0;
+      var isDigit = /^\d{1,2}$/.test(base) && Number(base) <= 20, okKey = isDigit || ["draw", "praise", "prompt", "oops", "retry"].indexOf(base) >= 0;
       var mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : (ext === "m4a" || ext === "mp4") ? "audio/mp4" : "";
       if (!okKey || !mime) { bad++; return; }
       try { localStorage.setItem("voice_" + base, toDataURI(it.data, mime)); n++; } catch (e) { bad++; }
@@ -274,18 +285,18 @@ function layout() {
   dirty = true;
 }
 function layoutHome() {
-  var portrait = H > W, per = portrait ? 4 : 5, rows = Math.ceil(10 / per), mg = U * 1.3;
+  var portrait = H > W, per = portrait ? 4 : 5, rows = Math.ceil((homePage ? 11 : 10) / per), mg = U * 1.3, ratio = homePage ? 0.64 : 1.25;
   var btnH = Math.max(46, U * 12), fs = Math.max(18, U * 4.6);
   var gw = Math.min(W * 0.94, H * 1.25);
   var tw = Math.floor(gw / per - 2 * mg);
-  var maxTw = (H - btnH - 5 * U - 40) / (rows * 1.25) - 2 * mg;
+  var maxTw = (H - btnH - 5 * U - 40) / (rows * ratio) - 2 * mg;
   tw = Math.floor(Math.min(tw, maxTw));
   var tiles = document.querySelectorAll("#grid .tile");
   for (var i = 0; i < tiles.length; i++) { tiles[i].style.width = tw + "px"; tiles[i].style.margin = mg + "px"; }
   var gridW = per * (tw + 2 * mg);
   var grid = $("grid"); grid.style.width = gridW + "px";
   var btn = $("findBtn"); btn.style.fontSize = fs + "px"; btn.style.height = btnH + "px"; btn.style.lineHeight = (btnH - 8) + "px";
-  var total = rows * (tw * 1.25 + 2 * mg + 6) + btnH + 3 * U;
+  var total = rows * (tw * ratio + 2 * mg + 22) + btnH + 3 * U;
   $("homeIn").style.paddingTop = Math.max(8, (H - total) / 2) + "px";
 }
 var cv = $("cv"), ctx = cv.getContext("2d"), fx = $("fx"), fctx = fx.getContext("2d");
@@ -296,7 +307,7 @@ function layoutPlay(barH) {
   card.style.left = m + "px"; card.style.top = barH + "px"; card.style.width = cw + "px"; card.style.height = ch + "px";
   var land = cw > ch * 1.05, ow = land ? cw * 0.46 : cw, oh = land ? ch : ch * 0.36;
   var objs = $("objs"); objs.style.left = "0px"; objs.style.top = "0px"; objs.style.width = ow + "px"; objs.style.height = oh + "px";
-  var n = cur === 0 ? 1 : cur, cols = COLS[cur], rows = Math.ceil(n / cols), pad = U * 2;
+  var n = cur === 0 ? 1 : cur, cols = cur >= 10 ? 5 : COLS[cur], rows = Math.ceil(n / cols), pad = U * 2;
   var s = Math.floor(Math.min((ow - 2 * pad) / cols, (oh - 2 * pad) / rows));
   var inn = $("objsIn"); inn.style.width = (cols * s) + "px"; inn.style.left = ((ow - cols * s) / 2) + "px"; inn.style.top = ((oh - rows * s) / 2) + "px";
   var os = inn.children; for (var i = 0; i < os.length; i++) { os[i].style.width = s + "px"; os[i].style.height = s + "px"; }
@@ -306,7 +317,7 @@ function layoutPlay(barH) {
   cv.style.left = cx + "px"; cv.style.top = cy + "px"; cv.style.width = cvW + "px"; cv.style.height = cvH + "px";
   cv.width = Math.round(cvW * dpr); cv.height = Math.round(cvH * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  scale = Math.min(cvW / 265, cvH / 345); ox = (cvW - 200 * scale) / 2; oy = (cvH - 300 * scale) / 2;
+  var uw = unitW(cur); scale = Math.min(cvW / (uw + 65), cvH / 345); ox = (cvW - uw * scale) / 2; oy = (cvH - 300 * scale) / 2;
 }
 function layoutFind(barH) {
   var cw = Math.floor(Math.min(W * 0.26, (H - barH) * 0.6 * 0.75)), chh = Math.floor(cw * 4 / 3);
@@ -318,15 +329,18 @@ window.addEventListener("resize", function () { layout(); });
 window.addEventListener("orientationchange", function () { setTimeout(layout, 250); });
 
 /* ---------- home ---------- */
+var homePage = 0;
 function renderHome() {
   var g = $("grid"); g.innerHTML = "";
-  for (var d = 0; d < 10; d++) (function (d) {
-    var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[d];
+  var nums = homePage ? [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  $("pageBtn").innerHTML = iconSVG("next"); $("pageBtn").className = "round" + (homePage ? " back" : "");
+  nums.forEach(function (d) {
+    var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[d % 10];
     var st = ""; for (var k = 0; k < Math.min(stars[d], 3); k++) st += iconSVG("star");
-    t.innerHTML = '<div class="ti">' + digitSVG(d) + '</div><div class="stars">' + st + "</div>";
+    t.innerHTML = '<div class="ti" style="padding-bottom:' + (homePage ? "64%" : "125%") + '">' + digitSVG(d) + '</div><div class="stars">' + st + "</div>";
     tap(t, function () { startPlay(d); });
     g.appendChild(t);
-  })(d);
+  });
   layoutHome();
 }
 function tap(el, fn) {
@@ -340,16 +354,15 @@ function tap(el, fn) {
 /* ---------- tracing ---------- */
 var cur = 0, strokeIdx = 0, pos = 0, drawing = false, done = false, lastTouch = 0, fingerPt = null, dirRev = false, dirty = true;
 var R = 30, WIN = 16;
-var REV0 = DIGITS[0][0].slice().reverse();
-function curWP() { return (cur === 0 && dirRev) ? REV0 : DIGITS[cur][strokeIdx]; }
+function curWP() { return (LOOPS[cur][strokeIdx] && dirRev) ? REV[cur][strokeIdx] : NUMBERS[cur][strokeIdx]; }
 function startPlay(d) {
   cur = d; strokeIdx = 0; pos = 0; drawing = false; done = false; dirRev = false; lastTouch = Date.now();
   show("play"); $("next").className = "round";
   var o = $("objsIn"); o.innerHTML = "";
-  var n = d === 0 ? 1 : d;
-  $("card").style.borderColor = COLORS[d];
+  var n = d === 0 ? 1 : d, big = d >= 10;
+  $("card").style.borderColor = COLORS[d % 10];
   for (var i = 0; i < n; i++) (function (i) {
-    var s = document.createElement("div"); s.className = "obj"; s.innerHTML = objSVG(d);
+    var s = document.createElement("div"); s.className = "obj"; s.innerHTML = objSVG(big ? OBJ_FOR[d - 10] : d);
     tap(s, function () { s.className = "obj"; void s.offsetWidth; s.className = "obj on"; tone(500 + i * 70, 0.12); sayName(d === 0 ? 0 : i + 1); });
     o.appendChild(s);
   })(i);
@@ -362,20 +375,20 @@ function scan(wp, u) {
 }
 function nearest(wp, u) { var m = 1e9; for (var j = 0; j <= WIN && j < wp.length; j++) m = Math.min(m, Math.hypot(u[0] - wp[j][0], u[1] - wp[j][1])); return m; }
 function match(u) {
-  if (cur === 0 && pos === 0) {
-    var F = DIGITS[0][0], s0 = F[0];
+  if (LOOPS[cur][strokeIdx] && pos === 0) {
+    var F = NUMBERS[cur][strokeIdx], RV = REV[cur][strokeIdx], s0 = F[0];
     if (Math.hypot(u[0] - s0[0], u[1] - s0[1]) < 14) return scan(F, u) >= 0 ? 0 : -1;
-    dirRev = nearest(REV0, u) < nearest(F, u);
-    return scan(dirRev ? REV0 : F, u);
+    dirRev = nearest(RV, u) < nearest(F, u);
+    return scan(dirRev ? RV : F, u);
   }
   return scan(curWP(), u);
 }
 function advance(j) {
-  var wp = DIGITS[cur][strokeIdx];
+  var wp = NUMBERS[cur][strokeIdx];
   if (j > pos) { pos = j; if (pos % 4 === 0) tone(380 + pos * 3, 0.05, "sine", 0.05); }
   if (pos >= wp.length - 3) {
     pos = wp.length - 1; tone(700, 0.12, "triangle", 0.15);
-    if (strokeIdx < DIGITS[cur].length - 1) { strokeIdx++; pos = 0; drawing = false; } else win();
+    if (strokeIdx < NUMBERS[cur].length - 1) { strokeIdx++; pos = 0; drawing = false; dirRev = false; } else win();
   }
   dirty = true;
 }
@@ -405,6 +418,11 @@ function win() {
   fanfare(); confetti();
   var n = cur === 0 ? 0 : cur, objs = $("objsIn").children;
   if (cur === 0) later(function () { objs[0].className = "obj on"; sayName(0); }, 700);
+  else if (cur >= 10) {
+    for (var q = 0; q < objs.length; q++) (function (q) { later(function () { objs[q].className = "obj on"; tone(420 + q * 28, 0.09); }, 600 + q * 230); })(q);
+    later(function () { sayName(cur); $("next").className = "round show"; }, 600 + n * 230 + 300);
+    return;
+  }
   else for (var i = 0; i < objs.length; i++) (function (i) { later(function () { objs[i].className = "obj on"; tone(500 + i * 70, 0.12); sayName(i + 1); }, 700 + i * 1000); })(i);
   later(function () { sayName(cur); $("next").className = "round show"; }, 700 + Math.max(n, 1) * 1000 + 300);
 }
@@ -427,27 +445,27 @@ function sparkPath(g, r) { g.beginPath(); g.moveTo(0, -r); g.quadraticCurveTo(0,
 function setDash(a) { if (ctx.setLineDash) ctx.setLineDash(a); }
 function drawPlay() {
   ctx.clearRect(0, 0, cvW, cvH); ctx.lineCap = "round"; ctx.lineJoin = "round";
-  var S = DIGITS[cur], O = COLORS[cur], Pp = PASTEL[cur], Pat = crayon(Pp), PatD = crayon(mixHex(Pp, O, 0.5)), i;
+  var S = NUMBERS[cur], O = COLORS[cur % 10], Pp = PASTEL[cur % 10], Pat = crayon(Pp), PatD = crayon(mixHex(Pp, O, 0.5)), i;
   setDash([]);
   for (i = 0; i < S.length; i++) { pathOf(S[i]); ctx.lineWidth = 47 * scale; ctx.strokeStyle = O; ctx.stroke(); }
   for (i = 0; i < S.length; i++) { pathOf(S[i]); ctx.lineWidth = 44 * scale; ctx.strokeStyle = Pat; ctx.stroke(); }
   for (i = 0; i < S.length; i++) {
     if (done || i < strokeIdx) { pathOf(S[i]); ctx.lineWidth = 44 * scale; ctx.strokeStyle = PatD; ctx.stroke(); }
-    else if (i === strokeIdx && pos > 0) { pathOf((cur === 0 && dirRev) ? REV0 : S[i], pos); ctx.lineWidth = 44 * scale; ctx.strokeStyle = PatD; ctx.stroke(); }
+    else if (i === strokeIdx && pos > 0) { pathOf((LOOPS[cur][i] && dirRev) ? REV[cur][i] : S[i], pos); ctx.lineWidth = 44 * scale; ctx.strokeStyle = PatD; ctx.stroke(); }
   }
   setDash([9 * scale, 9 * scale]); ctx.lineWidth = 2.6 * scale; ctx.globalAlpha = 0.7;
   for (i = 0; i < S.length; i++) { pathOf(S[i]); ctx.strokeStyle = O; ctx.stroke(); }
   ctx.globalAlpha = 0.9;
   for (i = 0; i < S.length; i++) {
     if (done || i < strokeIdx) { pathOf(S[i]); ctx.strokeStyle = "#fff"; ctx.stroke(); }
-    else if (i === strokeIdx && pos > 0) { pathOf((cur === 0 && dirRev) ? REV0 : S[i], pos); ctx.strokeStyle = "#fff"; ctx.stroke(); }
+    else if (i === strokeIdx && pos > 0) { pathOf((LOOPS[cur][i] && dirRev) ? REV[cur][i] : S[i], pos); ctx.strokeStyle = "#fff"; ctx.stroke(); }
   }
   ctx.globalAlpha = 1; setDash([]);
   if (!done) {
     var wp = curWP();
     for (i = 0; i < S.length; i++) {
       if (i < strokeIdx || (i === strokeIdx && (pos > 0 || drawing))) continue;
-      var now = i === strokeIdx, p0 = (now && cur === 0 && dirRev) ? REV0[0] : S[i][0], r = (now ? 23 : 14) * scale;
+      var now = i === strokeIdx, p0 = (now && LOOPS[cur][i] && dirRev) ? REV[cur][i][0] : S[i][0], r = (now ? 23 : 14) * scale;
       ctx.beginPath(); ctx.arc(ox + p0[0] * scale, oy + p0[1] * scale, r, 0, 7); ctx.fillStyle = now ? "#f78fa7" : "#b9a99a"; ctx.fill();
       ctx.lineWidth = 3.5 * scale; ctx.strokeStyle = "#fff"; ctx.stroke();
       ctx.fillStyle = "#fff"; ctx.font = "bold " + ((now ? 24 : 18) * scale) + "px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -521,7 +539,7 @@ function nextRound() {
   later(function () { sayName("prompt", function () { sayName(target); }); }, 300);
 }
 
-window.__numdbg = function () { return { DIGITS: DIGITS, ox: ox, oy: oy, scale: scale, done: done, cur: cur, pos: pos, strokeIdx: strokeIdx, target: target, particles: particles.length, stars: stars }; };
+window.__numdbg = function () { return { NUMBERS: NUMBERS, LOOPS: LOOPS, REV: REV, ox: ox, oy: oy, scale: scale, done: done, cur: cur, pos: pos, strokeIdx: strokeIdx, target: target, particles: particles.length, stars: stars }; };
 
 /* ---------- parents screen: import voices (recording and export are not possible on iOS 9) ---------- */
 function layoutRec(barH) {
@@ -537,7 +555,7 @@ function renderRec() {
   var list = $("recList"); list.innerHTML = "";
   VKEYS.forEach(function (k) {
     var row = document.createElement("div"); row.className = "rrow";
-    var label = typeof k === "number" ? '<div class="rd">' + digitSVG(k) + "</div>" : '<div class="rl">' + PHRASE[k] + "</div>";
+    var label = typeof k === "number" ? '<div class="rd' + (k >= 10 ? " w" : "") + '">' + digitSVG(k) + "</div>" : '<div class="rl">' + PHRASE[k] + "</div>";
     var have = !!voiceGet(k);
     row.innerHTML = '<div class="rlw">' + label + "</div>" + (have ? '<div class="rok">' + iconSVG("check") + "</div>" : "");
     if (have) {
@@ -559,7 +577,8 @@ $("redo").innerHTML = iconSVG("redo"); $("next").innerHTML = iconSVG("next");
 $("findBtn").innerHTML = iconSVG("play") + "<span>שנשחק?</span>";
 tap($("homeP"), function () { show("home"); }); tap($("homeF"), function () { show("home"); });
 tap($("sayP"), function () { sayName(cur); }); tap($("sayF"), function () { sayName("prompt", function () { sayName(target); }); });
-tap($("redo"), function () { startPlay(cur); }); tap($("next"), function () { startPlay((cur + 1) % 10); });
+tap($("redo"), function () { startPlay(cur); }); tap($("next"), function () { var hi = cur >= 10 ? 20 : 9, lo = cur >= 10 ? 10 : 0; startPlay(cur >= hi ? lo : cur + 1); });
+tap($("pageBtn"), function () { homePage = homePage ? 0 : 1; renderHome(); });
 tap($("findBtn"), function () { tone(600, 0.1); startFind(); });
 $("homeR").innerHTML = iconSVG("home"); $("impR").innerHTML = iconSVG("import"); $("gear").innerHTML = iconSVG("gear");
 tap($("homeR"), function () { show("home"); });
