@@ -73,7 +73,7 @@ function objSVG(d) {
   }
   return '<svg viewBox="0 0 100 100">' + s + "</svg>";
 }
-var ICOCOL = { home: ["#ffd3a8", "#eb9a5c"], say: ["#bfe3f5", "#6fb3d8"], next: ["#bfe8d4", "#6fbf9e"], play: ["#bfe8d4", "#6fbf9e"], star: ["#ffe9a0", "#e8b84a"], redo: ["#f9b8c6", "#e07c97"] };
+var ICOCOL = { home: ["#ffd3a8", "#eb9a5c"], say: ["#bfe3f5", "#6fb3d8"], next: ["#bfe8d4", "#6fbf9e"], play: ["#bfe8d4", "#6fbf9e"], star: ["#ffe9a0", "#e8b84a"], redo: ["#f9b8c6", "#e07c97"], check: ["#bfe8d4", "#6fbf9e"], trash: ["#ece4d8", "#b3a592"], import: ["#bfe8d4", "#6fbf9e"], gear: ["#ece4d8", "#b3a592"] };
 function iconSVG(n) {
   var c = ICOCOL[n], P = c[0], O = c[1], st = 'fill="' + P + '" stroke="' + O + '" stroke-width="3.8" stroke-linejoin="round" stroke-linecap="round"', ln = 'fill="none" stroke="' + O + '" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"', s = "";
   switch (n) {
@@ -82,6 +82,10 @@ function iconSVG(n) {
     case "next": s = '<path d="M16 40H50V20L86 50L50 80V60H16Z" ' + st + "/>"; break;
     case "play": s = '<path d="M28 16L84 50L28 84Z" ' + st + "/>"; break;
     case "redo": s = '<circle cx="50" cy="50" r="40" ' + st + '/><path d="M68 38A22 22 0 1 0 72 54" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M70 22V40H52" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>'; break;
+    case "check": s = '<circle cx="50" cy="50" r="38" ' + st + '/><path d="M30 52L45 66L72 36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>'; break;
+    case "trash": s = '<path d="M24 32H76L70 88H30Z" ' + st + '/><path d="M16 30H84M40 30V20H60V30" ' + ln + '/><path d="M42 46V76M58 46V76" stroke="' + O + '" stroke-width="3.4" stroke-linecap="round"/>'; break;
+    case "import": s = '<path d="M20 62V84H80V62" ' + ln + '/><path d="M50 14V64M32 46L50 64L68 46" ' + ln + '/>'; break;
+    case "gear": s = [0, 45, 90, 135].map(function (a) { return '<line x1="50" y1="12" x2="50" y2="88" stroke="' + O + '" stroke-width="13" stroke-linecap="round" transform="rotate(' + a + ' 50 50)"/>'; }).join("") + '<circle cx="50" cy="50" r="28" ' + st + '/><circle cx="50" cy="50" r="10" fill="#fffaf1" stroke="' + O + '" stroke-width="4"/>'; break;
     case "star": s = '<path d="M50 10L61 38L91 38L67 56L76 86L50 68L24 86L33 56L9 38L39 38Z" ' + st + "/>"; break;
   }
   return '<svg viewBox="0 0 100 100">' + s + "</svg>";
@@ -142,7 +146,7 @@ function sayName(n, cb) {
   function fallback() { if (my !== sayTok) return; speak(PHRASE[n] || NAMES[n], done); }
   voiceEl.onended = done;
   voiceEl.onerror = fallback;
-  try { voiceEl.src = "audio/" + n + ".m4a"; var p = voiceEl.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+  try { voiceEl.src = voiceUrl(n); var p = voiceEl.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
 }
 var unlocked = false;
 function unlockAudio() {
@@ -154,6 +158,53 @@ function unlockAudio() {
 document.addEventListener("touchstart", unlockAudio, true);
 document.addEventListener("mousedown", unlockAudio, true);
 
+/* ---------- imported voice recordings (stored on this device only) ---------- */
+var VKEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "draw", "praise", "prompt", "oops", "retry"];
+function voiceGet(k) { try { return localStorage.getItem("voice_" + k); } catch (e) { return null; } }
+function voiceUrl(n) { return voiceGet(n) || ("audio/" + n + ".m4a"); }
+function readZip(buf) {
+  var dv = new DataView(buf), u8 = new Uint8Array(buf), out = [], p = 0;
+  while (p + 30 <= buf.byteLength && dv.getUint32(p, true) === 0x04034b50) {
+    var method = dv.getUint16(p + 8, true), csize = dv.getUint32(p + 18, true), nlen = dv.getUint16(p + 26, true), elen = dv.getUint16(p + 28, true);
+    if (method !== 0) throw new Error("zip-method");
+    var name = ""; for (var i = 0; i < nlen; i++) name += String.fromCharCode(u8[p + 30 + i]);
+    var start = p + 30 + nlen + elen;
+    out.push({ name: name, data: u8.subarray(start, start + csize) });
+    p = start + csize;
+  }
+  return out;
+}
+function toDataURI(u8, mime) {
+  var bin = "";
+  for (var i = 0; i < u8.length; i += 8192) bin += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + 8192, u8.length)));
+  return "data:" + mime + ";base64," + btoa(bin);
+}
+function importFiles(files, finished) {
+  var items = [], pending = files.length, bad = 0, n = 0;
+  if (!pending) { finished(0, 0); return; }
+  function store() {
+    items.forEach(function (it) {
+      var base = it.name.replace(/^.*\//, "").replace(/\.[^.]+$/, ""), ext = (it.name.match(/\.([^.]+)$/) || [, ""])[1].toLowerCase();
+      var isDigit = /^\d$/.test(base), okKey = isDigit || ["draw", "praise", "prompt", "oops", "retry"].indexOf(base) >= 0;
+      var mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : (ext === "m4a" || ext === "mp4") ? "audio/mp4" : "";
+      if (!okKey || !mime) { bad++; return; }
+      try { localStorage.setItem("voice_" + base, toDataURI(it.data, mime)); n++; } catch (e) { bad++; }
+    });
+    finished(n, bad);
+  }
+  function one() { if (--pending === 0) store(); }
+  for (var i = 0; i < files.length; i++) (function (f) {
+    var r = new FileReader();
+    r.onload = function () {
+      if (/\.zip$/i.test(f.name)) { try { readZip(r.result).forEach(function (e) { items.push(e); }); } catch (e) { bad++; } }
+      else items.push({ name: f.name, data: new Uint8Array(r.result) });
+      one();
+    };
+    r.onerror = function () { bad++; one(); };
+    r.readAsArrayBuffer(f);
+  })(files[i]);
+}
+
 /* ---------- timers ---------- */
 var timers = [];
 function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
@@ -164,8 +215,9 @@ var particles = [];
 var current = "home";
 function show(id) {
   clearTimers(); stopVoice(); particles = []; current = id;
-  ["home", "play", "find"].forEach(function (s) { $(s).className = "screen" + (s === id ? " on" : ""); });
+  ["home", "play", "find", "rec"].forEach(function (s) { $(s).className = "screen" + (s === id ? " on" : ""); });
   if (id === "home") renderHome();
+  if (id === "rec") renderRec();
   layout();
 }
 var W = 0, H = 0, U = 1;
@@ -181,6 +233,7 @@ function layout() {
   if (current === "home") layoutHome();
   if (current === "play") layoutPlay(barH);
   if (current === "find") layoutFind(barH);
+  if (current === "rec") layoutRec(barH);
   dirty = true;
 }
 function layoutHome() {
@@ -305,7 +358,10 @@ var mouseDown = false;
 cv.addEventListener("mousedown", function (e) { mouseDown = true; pDown(e); }, false);
 cv.addEventListener("mousemove", function (e) { if (mouseDown) pMove(e); }, false);
 window.addEventListener("mouseup", function () { mouseDown = false; pUp(); }, false);
-document.addEventListener("touchmove", function (e) { e.preventDefault(); }, false);
+document.addEventListener("touchmove", function (e) {
+  var t = e.target; while (t && t !== document.body) { if (t.id === "recList") return; t = t.parentNode; }
+  e.preventDefault();
+}, false);
 
 function win() {
   done = true; drawing = false; fingerPt = null; stars[cur] = Math.min(stars[cur] + 1, 99); saveStars();
@@ -430,6 +486,32 @@ function nextRound() {
 
 window.__numdbg = function () { return { DIGITS: DIGITS, ox: ox, oy: oy, scale: scale, done: done, cur: cur, pos: pos, strokeIdx: strokeIdx, target: target, particles: particles.length, stars: stars }; };
 
+/* ---------- parents screen: import voices (recording and export are not possible on iOS 9) ---------- */
+function layoutRec(barH) {
+  var list = $("recList"); list.style.top = barH + "px";
+  var cols = W < 700 ? 1 : 2, rw = Math.floor((W * 0.94) / cols - 14);
+  var rows = list.children; for (var i = 0; i < rows.length; i++) rows[i].style.width = rw + "px";
+  var rb = document.querySelectorAll(".rb2"); var bs = Math.round(Math.max(40, Math.min(52, U * 5.4)));
+  for (var j = 0; j < rb.length; j++) { rb[j].style.width = bs + "px"; rb[j].style.height = bs + "px"; }
+  $("rmsg").style.fontSize = Math.max(13, U * 2.4) + "px";
+}
+function recMsg(t) { $("rmsg").textContent = t; }
+function renderRec() {
+  var list = $("recList"); list.innerHTML = "";
+  VKEYS.forEach(function (k) {
+    var row = document.createElement("div"); row.className = "rrow";
+    var label = typeof k === "number" ? '<div class="rd">' + digitSVG(k) + "</div>" : '<div class="rl">' + PHRASE[k] + "</div>";
+    var have = !!voiceGet(k);
+    row.innerHTML = '<div class="rlw">' + label + "</div>" + (have ? '<div class="rok">' + iconSVG("check") + "</div>" : "");
+    if (have) {
+      var pl = document.createElement("div"); pl.className = "rb2"; pl.innerHTML = iconSVG("play"); tap(pl, function () { sayName(k); }); row.appendChild(pl);
+      var de = document.createElement("div"); de.className = "rb2"; de.innerHTML = iconSVG("trash"); tap(de, function () { try { localStorage.removeItem("voice_" + k); } catch (e) {} renderRec(); layout(); }); row.appendChild(de);
+    }
+    list.appendChild(row);
+  });
+  layout();
+}
+
 /* ---------- wiring ---------- */
 $("homeP").innerHTML = iconSVG("home"); $("homeF").innerHTML = iconSVG("home");
 $("sayP").innerHTML = iconSVG("say"); $("sayF").innerHTML = iconSVG("say");
@@ -439,6 +521,23 @@ tap($("homeP"), function () { show("home"); }); tap($("homeF"), function () { sh
 tap($("sayP"), function () { sayName(cur); }); tap($("sayF"), function () { sayName("prompt", function () { sayName(target); }); });
 tap($("redo"), function () { startPlay(cur); }); tap($("next"), function () { startPlay((cur + 1) % 10); });
 tap($("findBtn"), function () { tone(600, 0.1); startFind(); });
+$("homeR").innerHTML = iconSVG("home"); $("impR").innerHTML = iconSVG("import"); $("gear").innerHTML = iconSVG("gear");
+tap($("homeR"), function () { show("home"); });
+tap($("impR"), function () { $("impIn").click(); });
+$("impIn").onchange = function () {
+  var fl = []; for (var i = 0; i < this.files.length; i++) fl.push(this.files[i]);
+  var inp = this;
+  importFiles(fl, function (n, bad) { recMsg("יובאו " + n + " הקלטות" + (bad ? " (" + bad + " דולגו)" : "") + "."); renderRec(); inp.value = ""; });
+};
+recMsg("הקלטה וייצוא לא זמינים במכשיר הזה. אפשר לייבא קובץ voices.zip שיוצא ממכשיר אחר.");
+(function () {
+  var g = $("gear"), t = null;
+  function down() { g.className = "hold"; clearTimeout(t); t = setTimeout(function () { g.className = ""; show("rec"); }, 800); }
+  function up() { g.className = ""; clearTimeout(t); }
+  g.addEventListener("touchstart", down, false); g.addEventListener("mousedown", down, false);
+  g.addEventListener("touchend", up, false); g.addEventListener("touchcancel", up, false); g.addEventListener("mouseup", up, false); g.addEventListener("mouseleave", up, false);
+  if (/[?&]rec\b/.test(location.search)) setTimeout(function () { show("rec"); }, 0);
+})();
 addDeco($("home")); addDeco($("card")); addDeco($("find"));
 show("home");
 frame();

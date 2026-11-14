@@ -52,12 +52,35 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
 .card.bad{-webkit-animation:shake .4s;animation:shake .4s}
 @-webkit-keyframes shake{25%{-webkit-transform:translateX(-14px)}75%{-webkit-transform:translateX(14px)}}
 @keyframes shake{25%{transform:translateX(-14px)}75%{transform:translateX(14px)}}
+#gear{position:absolute;top:10px;left:10px;width:44px;height:44px;opacity:.28;z-index:3}
+#gear svg{width:100%;height:100%}
+#gear.hold{opacity:1;-webkit-transform:scale(1.3);transform:scale(1.3);-webkit-transition:-webkit-transform .8s,opacity .8s;transition:transform .8s,opacity .8s}
+#rec{background:#fffaf1}
+.bar .msg{-webkit-flex:1;flex:1;direction:rtl;color:#6b4a4a;line-height:1.35;padding:0 14px;text-align:right}
+#recList{position:absolute;left:0;right:0;bottom:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 3% 24px;text-align:center}
+.rrow{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;vertical-align:top;margin:6px 7px;background:#fff0dd;border-radius:14px;padding:6px 16px;min-height:58px}
+.rlw{-webkit-flex:1;flex:1;text-align:left;direction:rtl}
+.rd{display:inline-block;width:34px;height:46px}.rd svg{width:100%;height:100%}
+.rl{color:#6b4a4a;font-size:15px;line-height:1.25;text-align:right}
+.rok{width:26px;height:26px;margin:0 10px}.rok svg{width:100%;height:100%}
+.rb2{position:relative;border-radius:50%;background:#fffaf1;border:2px solid #e9cdb0;margin-left:8px;-webkit-flex:none;flex:none}
+.rb2 svg{position:absolute;left:13%;top:13%;width:74%;height:74%}
 #fx{position:fixed;left:0;top:0;pointer-events:none;z-index:50}
 </style>
 </head>
 <body>
 
-<div id="home" class="screen on"><div id="homeIn"><div id="grid"></div><div id="findBtn"></div></div></div>
+<div id="home" class="screen on"><div id="gear"></div><div id="homeIn"><div id="grid"></div><div id="findBtn"></div></div></div>
+
+<div id="rec" class="screen">
+  <div class="bar">
+    <div class="round" id="homeR"></div>
+    <div class="msg" id="rmsg"></div>
+    <div class="round" id="impR"></div>
+    <input type="file" id="impIn" multiple accept=".zip,.m4a,.mp3,.wav,audio/*" style="display:none">
+  </div>
+  <div id="recList"></div>
+</div>
 
 <div id="play" class="screen">
   <div class="bar">
@@ -245,7 +268,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     next: ["#bfe8d4", "#6fbf9e"],
     play: ["#bfe8d4", "#6fbf9e"],
     star: ["#ffe9a0", "#e8b84a"],
-    redo: ["#f9b8c6", "#e07c97"]
+    redo: ["#f9b8c6", "#e07c97"],
+    check: ["#bfe8d4", "#6fbf9e"],
+    trash: ["#ece4d8", "#b3a592"],
+    import: ["#bfe8d4", "#6fbf9e"],
+    gear: ["#ece4d8", "#b3a592"]
   };
   function iconSVG(n) {
     var c = ICOCOL[n],
@@ -269,6 +296,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
         break;
       case "redo":
         s = '<circle cx="50" cy="50" r="40" ' + st + '/><path d="M68 38A22 22 0 1 0 72 54" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M70 22V40H52" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>';
+        break;
+      case "check":
+        s = '<circle cx="50" cy="50" r="38" ' + st + '/><path d="M30 52L45 66L72 36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>';
+        break;
+      case "trash":
+        s = '<path d="M24 32H76L70 88H30Z" ' + st + '/><path d="M16 30H84M40 30V20H60V30" ' + ln + '/><path d="M42 46V76M58 46V76" stroke="' + O + '" stroke-width="3.4" stroke-linecap="round"/>';
+        break;
+      case "import":
+        s = '<path d="M20 62V84H80V62" ' + ln + '/><path d="M50 14V64M32 46L50 64L68 46" ' + ln + '/>';
+        break;
+      case "gear":
+        s = [0, 45, 90, 135].map(function (a) {
+          return '<line x1="50" y1="12" x2="50" y2="88" stroke="' + O + '" stroke-width="13" stroke-linecap="round" transform="rotate(' + a + ' 50 50)"/>';
+        }).join("") + '<circle cx="50" cy="50" r="28" ' + st + '/><circle cx="50" cy="50" r="10" fill="#fffaf1" stroke="' + O + '" stroke-width="4"/>';
         break;
       case "star":
         s = '<path d="M50 10L61 38L91 38L67 56L76 86L50 68L24 86L33 56L9 38L39 38Z" ' + st + "/>";
@@ -409,7 +450,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     voiceEl.onended = done;
     voiceEl.onerror = fallback;
     try {
-      voiceEl.src = "audio/" + n + ".m4a";
+      voiceEl.src = voiceUrl(n);
       var p = voiceEl.play();
       if (p && p.catch) p.catch(fallback);
     } catch (e) {
@@ -438,6 +479,102 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
   document.addEventListener("touchstart", unlockAudio, true);
   document.addEventListener("mousedown", unlockAudio, true);
 
+  /* ---------- imported voice recordings (stored on this device only) ---------- */
+  var VKEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "draw", "praise", "prompt", "oops", "retry"];
+  function voiceGet(k) {
+    try {
+      return localStorage.getItem("voice_" + k);
+    } catch (e) {
+      return null;
+    }
+  }
+  function voiceUrl(n) {
+    return voiceGet(n) || "audio/" + n + ".m4a";
+  }
+  function readZip(buf) {
+    var dv = new DataView(buf),
+      u8 = new Uint8Array(buf),
+      out = [],
+      p = 0;
+    while (p + 30 <= buf.byteLength && dv.getUint32(p, true) === 0x04034b50) {
+      var method = dv.getUint16(p + 8, true),
+        csize = dv.getUint32(p + 18, true),
+        nlen = dv.getUint16(p + 26, true),
+        elen = dv.getUint16(p + 28, true);
+      if (method !== 0) throw new Error("zip-method");
+      var name = "";
+      for (var i = 0; i < nlen; i++) name += String.fromCharCode(u8[p + 30 + i]);
+      var start = p + 30 + nlen + elen;
+      out.push({
+        name: name,
+        data: u8.subarray(start, start + csize)
+      });
+      p = start + csize;
+    }
+    return out;
+  }
+  function toDataURI(u8, mime) {
+    var bin = "";
+    for (var i = 0; i < u8.length; i += 8192) bin += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + 8192, u8.length)));
+    return "data:" + mime + ";base64," + btoa(bin);
+  }
+  function importFiles(files, finished) {
+    var items = [],
+      pending = files.length,
+      bad = 0,
+      n = 0;
+    if (!pending) {
+      finished(0, 0);
+      return;
+    }
+    function store() {
+      items.forEach(function (it) {
+        var base = it.name.replace(/^.*\//, "").replace(/\.[^.]+$/, ""),
+          ext = (it.name.match(/\.([^.]+)$/) || [, ""])[1].toLowerCase();
+        var isDigit = /^\d$/.test(base),
+          okKey = isDigit || ["draw", "praise", "prompt", "oops", "retry"].indexOf(base) >= 0;
+        var mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : ext === "m4a" || ext === "mp4" ? "audio/mp4" : "";
+        if (!okKey || !mime) {
+          bad++;
+          return;
+        }
+        try {
+          localStorage.setItem("voice_" + base, toDataURI(it.data, mime));
+          n++;
+        } catch (e) {
+          bad++;
+        }
+      });
+      finished(n, bad);
+    }
+    function one() {
+      if (--pending === 0) store();
+    }
+    for (var i = 0; i < files.length; i++) (function (f) {
+      var r = new FileReader();
+      r.onload = function () {
+        if (/\.zip$/i.test(f.name)) {
+          try {
+            readZip(r.result).forEach(function (e) {
+              items.push(e);
+            });
+          } catch (e) {
+            bad++;
+          }
+        } else items.push({
+          name: f.name,
+          data: new Uint8Array(r.result)
+        });
+        one();
+      };
+      r.onerror = function () {
+        bad++;
+        one();
+      };
+      r.readAsArrayBuffer(f);
+    })(files[i]);
+  }
+
   /* ---------- timers ---------- */
   var timers = [];
   function later(fn, ms) {
@@ -456,10 +593,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     stopVoice();
     particles = [];
     current = id;
-    ["home", "play", "find"].forEach(function (s) {
+    ["home", "play", "find", "rec"].forEach(function (s) {
       $(s).className = "screen" + (s === id ? " on" : "");
     });
     if (id === "home") renderHome();
+    if (id === "rec") renderRec();
     layout();
   }
   var W = 0,
@@ -483,6 +621,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     if (current === "home") layoutHome();
     if (current === "play") layoutPlay(barH);
     if (current === "find") layoutFind(barH);
+    if (current === "rec") layoutRec(barH);
     dirty = true;
   }
   function layoutHome() {
@@ -780,6 +919,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     pUp();
   }, false);
   document.addEventListener("touchmove", function (e) {
+    var t = e.target;
+    while (t && t !== document.body) {
+      if (t.id === "recList") return;
+      t = t.parentNode;
+    }
     e.preventDefault();
   }, false);
   function win() {
@@ -1128,6 +1272,59 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     };
   };
 
+  /* ---------- parents screen: import voices (recording and export are not possible on iOS 9) ---------- */
+  function layoutRec(barH) {
+    var list = $("recList");
+    list.style.top = barH + "px";
+    var cols = W < 700 ? 1 : 2,
+      rw = Math.floor(W * 0.94 / cols - 14);
+    var rows = list.children;
+    for (var i = 0; i < rows.length; i++) rows[i].style.width = rw + "px";
+    var rb = document.querySelectorAll(".rb2");
+    var bs = Math.round(Math.max(40, Math.min(52, U * 5.4)));
+    for (var j = 0; j < rb.length; j++) {
+      rb[j].style.width = bs + "px";
+      rb[j].style.height = bs + "px";
+    }
+    $("rmsg").style.fontSize = Math.max(13, U * 2.4) + "px";
+  }
+  function recMsg(t) {
+    $("rmsg").textContent = t;
+  }
+  function renderRec() {
+    var list = $("recList");
+    list.innerHTML = "";
+    VKEYS.forEach(function (k) {
+      var row = document.createElement("div");
+      row.className = "rrow";
+      var label = typeof k === "number" ? '<div class="rd">' + digitSVG(k) + "</div>" : '<div class="rl">' + PHRASE[k] + "</div>";
+      var have = !!voiceGet(k);
+      row.innerHTML = '<div class="rlw">' + label + "</div>" + (have ? '<div class="rok">' + iconSVG("check") + "</div>" : "");
+      if (have) {
+        var pl = document.createElement("div");
+        pl.className = "rb2";
+        pl.innerHTML = iconSVG("play");
+        tap(pl, function () {
+          sayName(k);
+        });
+        row.appendChild(pl);
+        var de = document.createElement("div");
+        de.className = "rb2";
+        de.innerHTML = iconSVG("trash");
+        tap(de, function () {
+          try {
+            localStorage.removeItem("voice_" + k);
+          } catch (e) {}
+          renderRec();
+          layout();
+        });
+        row.appendChild(de);
+      }
+      list.appendChild(row);
+    });
+    layout();
+  }
+
   /* ---------- wiring ---------- */
   $("homeP").innerHTML = iconSVG("home");
   $("homeF").innerHTML = iconSVG("home");
@@ -1160,6 +1357,51 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     tone(600, 0.1);
     startFind();
   });
+  $("homeR").innerHTML = iconSVG("home");
+  $("impR").innerHTML = iconSVG("import");
+  $("gear").innerHTML = iconSVG("gear");
+  tap($("homeR"), function () {
+    show("home");
+  });
+  tap($("impR"), function () {
+    $("impIn").click();
+  });
+  $("impIn").onchange = function () {
+    var fl = [];
+    for (var i = 0; i < this.files.length; i++) fl.push(this.files[i]);
+    var inp = this;
+    importFiles(fl, function (n, bad) {
+      recMsg("יובאו " + n + " הקלטות" + (bad ? " (" + bad + " דולגו)" : "") + ".");
+      renderRec();
+      inp.value = "";
+    });
+  };
+  recMsg("הקלטה וייצוא לא זמינים במכשיר הזה. אפשר לייבא קובץ voices.zip שיוצא ממכשיר אחר.");
+  (function () {
+    var g = $("gear"),
+      t = null;
+    function down() {
+      g.className = "hold";
+      clearTimeout(t);
+      t = setTimeout(function () {
+        g.className = "";
+        show("rec");
+      }, 800);
+    }
+    function up() {
+      g.className = "";
+      clearTimeout(t);
+    }
+    g.addEventListener("touchstart", down, false);
+    g.addEventListener("mousedown", down, false);
+    g.addEventListener("touchend", up, false);
+    g.addEventListener("touchcancel", up, false);
+    g.addEventListener("mouseup", up, false);
+    g.addEventListener("mouseleave", up, false);
+    if (/[?&]rec\b/.test(location.search)) setTimeout(function () {
+      show("rec");
+    }, 0);
+  })();
   addDeco($("home"));
   addDeco($("card"));
   addDeco($("find"));
