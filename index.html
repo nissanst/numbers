@@ -65,6 +65,8 @@ button{font:inherit;border:0;cursor:pointer}
 @media (max-width:760px){.rgrid{grid-template-columns:minmax(0,1fr)}}
 .rrow{min-height:60px;display:flex;align-items:center;gap:10px;background:#fff0dd;border-radius:16px;padding:8px 22px}
 .rd.w{width:12vmin;max-width:76px}
+.rd.w3{width:18vmin;max-width:110px}
+.tile.range{padding:1.4vmin}
 .rd{flex:none;width:7vmin;min-width:30px;max-width:44px;height:9vmin;min-height:44px;max-height:60px}.rd svg{width:100%;height:100%}
 .rd.p{flex:1 1 auto;min-width:0;width:auto;max-width:none;max-height:none;height:auto;min-height:44px;display:flex;align-items:center;gap:1vmin;font-size:max(14px,2.2vmin);color:#6b4a4a;direction:rtl;white-space:normal;line-height:1.25}.rd.p svg{flex:none;width:8vmin;height:8vmin;min-width:34px;min-height:34px}
 .rok{flex:none;width:5vmin;height:5vmin;min-width:24px;min-height:24px}.rok svg{width:100%;height:100%}
@@ -184,7 +186,7 @@ const RAW=[
 ];
 const DIGITS=RAW.map(strokes=>strokes.map(s=>resample(s,5)));
 const NAMES=["אפס","אחת","שתיים","שלוש","ארבע","חמש","שש","שבע","שמונה","תשע","עשר","אחת עשרה","שתים עשרה","שלוש עשרה","ארבע עשרה","חמש עשרה","שש עשרה","שבע עשרה","שמונה עשרה","תשע עשרה","עשרים"];
-const MAXN=20,GAP=230;
+const MAXN=100,GAP=230;
 const NUMBERS=[],LOOPS=[];
 for(let n=0;n<=MAXN;n++){
   const S=[],L=[];
@@ -192,8 +194,17 @@ for(let n=0;n<=MAXN;n++){
   NUMBERS.push(S);LOOPS.push(L);
 }
 const REV=NUMBERS.map(S=>S.map(st=>st.slice().reverse()));
-const unitW=n=>n>=10?200+GAP:200;
+const unitW=n=>200+(String(n).length-1)*GAP;
 const OBJ_FOR=[5,6,3,4,1,2,7,8,9,5,3];
+const TENS={20:"עשרים",30:"שלושים",40:"ארבעים",50:"חמישים",60:"שישים",70:"שבעים",80:"שמונים",90:"תשעים",100:"מאה"};
+const VU=["","ואחת","ושתיים","ושלוש","וארבע","וחמש","ושש","ושבע","ושמונה","ותשע"];
+const nameOf=k=>typeof k==="string"?(/^v\d$/.test(k)?VU[+k[1]]:k):(k<=20?NAMES[k]:TENS[k]);
+const ci=n=>n<10?n:(n>=100?0:Math.floor(n/10));
+const pageOf=n=>n===0?0:Math.ceil(n/10)-1;
+const pageNums=p=>p===0?[0,1,2,3,4,5,6,7,8,9,10]:Array.from({length:10},(_,i)=>p*10+1+i);
+const rangeLabel=p=>p===0?"1–10":(p*10+1)+"–"+(p*10+10);
+const VOICE_KEYS=[...Array(21).keys(),30,40,50,60,70,80,90,100,"v1","v2","v3","v4","v5","v6","v7","v8","v9","draw","praise","prompt","oops","retry"];
+let homeMode="ranges",homePageIdx=0;
 
 /* soft crayon palette: outline / pastel per digit */
 const COLORS=["#6fbf9e","#e07c97","#eb9a5c","#6fb3d8","#9b82cf","#e8b84a","#c982b8","#5fbdb3","#e5806a","#d9708a"];
@@ -203,7 +214,7 @@ const INK="#6b4a4a";
 function digitSVG(d){
   const pts=NUMBERS[d].map(s=>s.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" "));
   const L=(w,c,extra)=>pts.map(p=>`<polyline points="${p}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra||""}/>`).join("");
-  const c=COLORS[d%10],p=PASTEL[d%10];
+  const c=COLORS[ci(d)],p=PASTEL[ci(d)];
   return `<svg viewBox="-20 0 ${unitW(d)+40} 300"><g filter="url(#crayonD)">${L(47,c)}${L(44,p)}${L(2.6,c,'stroke-dasharray="9 9" opacity=".7"')}</g></svg>`;
 }
 
@@ -270,8 +281,8 @@ function addDeco(el){
 }
 
 /* ---------- storage ---------- */
-let stars=new Array(21).fill(0);
-try{const s=JSON.parse(localStorage.getItem("numstars")||"null");if(Array.isArray(s))stars=s.concat(new Array(21).fill(0)).slice(0,21);}catch(e){}
+let stars=new Array(101).fill(0);
+try{const s=JSON.parse(localStorage.getItem("numstars")||"null");if(Array.isArray(s))stars=s.concat(new Array(101).fill(0)).slice(0,101);}catch(e){}
 const saveStars=()=>{try{localStorage.setItem("numstars",JSON.stringify(stars));}catch(e){}};
 
 /* ---------- sound ---------- */
@@ -321,12 +332,20 @@ function sayName(n,cb){
   const done=()=>{if(cb&&tok===sayTok)cb();};
   const r=recs[n]||siteRecs[n];
   if(r&&ensureAC()){const s=AC.createBufferSource();s.buffer=r.buf;s.connect(AC.destination);s.onended=done;s.start(0,r.s,r.d);curSrc=s;}
-  else say(PHRASE[n]||NAMES[n],done);
+  else say(PHRASE[n]||nameOf(n),done);
 }
 async function loadSiteVoices(){
-  for(const k of [...Array(21).keys(),"draw","praise","prompt","oops","retry"]){
+  for(const k of VOICE_KEYS){
     try{const r=await fetch("lite/audio/"+k+".wav");if(!r.ok)continue;siteRecs[k]=await decodeRec(new Blob([await r.arrayBuffer()],{type:"audio/wav"}));}catch(e){}
   }
+}
+function dotSVG(d,i){
+  const c=ci(d),row=Math.floor(i/10)%2,fill=row?mixHex(PASTEL[c],COLORS[c],.45):PASTEL[c];
+  return `<svg viewBox="0 0 100 100"><path d="M50 8L62 36L92 38L69 58L77 90L50 72L23 90L31 58L8 38L38 36Z" fill="${fill}" stroke="${COLORS[c]}" stroke-width="5" stroke-linejoin="round"/></svg>`;
+}
+function sayNum(n,cb){
+  if(n<=20||n%10===0)sayName(n,cb);
+  else sayName(Math.floor(n/10)*10,()=>sayName("v"+(n%10),cb));
 }
 async function saveRec(d,blob){await dbPut(d,blob);recs[d]=await decodeRec(blob);}
 async function toggleRec(d){
@@ -378,7 +397,7 @@ function readZip(buf){
 }
 const extFor=t=>/mp4|m4a|aac/.test(t)?"m4a":/webm/.test(t)?"webm":/mpeg|mp3/.test(t)?"mp3":/wav/.test(t)?"wav":"bin";
 const mimeFor=n=>/\.webm$/i.test(n)?"audio/webm":/\.mp3$/i.test(n)?"audio/mpeg":/\.wav$/i.test(n)?"audio/wav":"audio/mp4";
-const REC_KEYS=["draw","praise","prompt","oops","retry"];
+const REC_KEYS=["draw","praise","prompt","oops","retry","v1","v2","v3","v4","v5","v6","v7","v8","v9"];
 async function exportRecs(){
   try{
     const all=await dbAll();
@@ -404,7 +423,7 @@ async function importFiles(list){
   }
   for(const it of items){
     const base=it.name.replace(/^.*\//,"").replace(/\.[^.]+$/,"");
-    const isDigit=/^\d{1,2}$/.test(base)&&Number(base)<=20;
+    const isDigit=/^\d{1,3}$/.test(base)&&VOICE_KEYS.includes(Number(base));
     if(!isDigit&&!REC_KEYS.includes(base)){bad++;continue;}
     try{await saveRec(isDigit?Number(base):base,it.blob);n++;}catch(e){bad++;}
   }
@@ -413,10 +432,10 @@ async function importFiles(list){
 }
 function renderRec(){
   const g=$("rgrid");g.innerHTML="";
-  for(const d of [...Array(21).keys(),"draw","praise","prompt","oops","retry"]){
+  for(const d of VOICE_KEYS){
     const row=document.createElement("div");row.className="rrow";
     const isRec=rec&&rec.d===d;
-    row.innerHTML=(d==="praise"?`<div class="rd p">${iconSVG("star")}<span>כל הכבוד, הצלחת</span></div>`:d==="prompt"?`<div class="rd p">${iconSVG("say")}<span>תבחרי מתוך המספרים את הספרה</span></div>`:d==="draw"?`<div class="rd p">${iconSVG("next")}<span>עכשיו נצייר עם האצבע את הספרה</span></div>`:d==="oops"?`<div class="rd p">${iconSVG("stop")}<span>אופס, בחרת בטעות את הספרה</span></div>`:d==="retry"?`<div class="rd p">${iconSVG("redo")}<span>בואי ננסה שוב ללחוץ על</span></div>`:`<div class="rd${d>=10?" w":""}">${digitSVG(d)}</div>`)+`<div class="rok">${recs[d]?iconSVG("check"):""}</div>`;
+    row.innerHTML=(d==="praise"?`<div class="rd p">${iconSVG("star")}<span>כל הכבוד, הצלחת</span></div>`:d==="prompt"?`<div class="rd p">${iconSVG("say")}<span>תבחרי מתוך המספרים את הספרה</span></div>`:d==="draw"?`<div class="rd p">${iconSVG("next")}<span>עכשיו נצייר עם האצבע את הספרה</span></div>`:d==="oops"?`<div class="rd p">${iconSVG("stop")}<span>אופס, בחרת בטעות את הספרה</span></div>`:d==="retry"?`<div class="rd p">${iconSVG("redo")}<span>בואי ננסה שוב ללחוץ על</span></div>`:/^v\d$/.test(String(d))?`<div class="rd p"><span>${VU[+String(d)[1]]}</span></div>`:`<div class="rd${d>=100?" w3":d>=10?" w":""}">${digitSVG(d)}</div>`)+`<div class="rok">${recs[d]?iconSVG("check"):""}</div>`;
     const mic=document.createElement("button");mic.className="rb"+(isRec?" rc":"");mic.innerHTML=iconSVG(isRec?"stop":"mic");mic.onclick=()=>toggleRec(d);row.appendChild(mic);
     if(recs[d]){
       const pl=document.createElement("button");pl.className="rb";pl.innerHTML=iconSVG("play");pl.onclick=()=>sayName(d);row.appendChild(pl);
@@ -434,15 +453,26 @@ function show(id){clearTimers();try{speechSynthesis.cancel();}catch(e){}stopRec(
   document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id));
   if(id==="home")renderHome();
 }
-let homePage=0;
+function rangeSVG(p){
+  const nums=pageNums(p),c=COLORS[p%10],pa=PASTEL[p%10],dots=nums.map((n,i)=>`<circle cx="${100+(i-(nums.length-1)/2)*15.5}" cy="120" r="5.4" fill="${stars[n]>0?c:"#e6dccd"}"/>`).join("");
+  return `<svg viewBox="0 0 200 150"><rect x="6" y="6" width="188" height="138" rx="26" fill="${pa}" opacity=".55"/><text x="100" y="82" text-anchor="middle" font-family="'Arial Rounded MT Bold',Arial,sans-serif" font-weight="bold" font-size="${p<9?54:46}" fill="${c}" stroke="#fffaf1" stroke-width="5" paint-order="stroke">${rangeLabel(p)}</text>${dots}</svg>`;
+}
 function renderHome(){
   $("grid").innerHTML="";
-  const nums=homePage?[10,11,12,13,14,15,16,17,18,19,20]:[0,1,2,3,4,5,6,7,8,9];
-  const pb=$("pageBtn");pb.innerHTML=iconSVG("next");pb.classList.toggle("back",!!homePage);
-  for(const d of nums){
-    const b=document.createElement("button");b.className="tile";b.style.borderColor=COLORS[d%10];
-    b.innerHTML=digitSVG(d)+`<div class="stars">${iconSVG("star").repeat(Math.min(stars[d],3))}</div>`;
-    b.onclick=()=>startPlay(d);$("grid").appendChild(b);
+  const pb=$("pageBtn");
+  if(homeMode==="ranges"){
+    pb.style.display="none";
+    for(let p=0;p<10;p++){
+      const b=document.createElement("button");b.className="tile range";b.style.borderColor=COLORS[p%10];
+      b.innerHTML=rangeSVG(p);b.onclick=()=>{homeMode="numbers";homePageIdx=p;renderHome();};$("grid").appendChild(b);
+    }
+  }else{
+    pb.style.display="";pb.innerHTML=iconSVG("next");pb.classList.add("back");
+    for(const d of pageNums(homePageIdx)){
+      const b=document.createElement("button");b.className="tile";b.style.borderColor=COLORS[ci(d)];
+      b.innerHTML=digitSVG(d)+`<div class="stars">${iconSVG("star").repeat(Math.min(stars[d],3))}</div>`;
+      b.onclick=()=>startPlay(d);$("grid").appendChild(b);
+    }
   }
 }
 
@@ -482,12 +512,13 @@ function startPlay(d){
   show("play");$("next").classList.remove("show");
   resize();
   const o=$("objs");o.innerHTML="";
-  const n=d===0?1:d,big=d>=10;
-  o.style.gridTemplateColumns="repeat("+(big?5:[1,1,2,2,2,3,3,3,3,3][d])+",1fr)";
-  const card=$("card");card.style.borderColor=COLORS[d%10];card.style.background="#fffaf1";
-  for(let i=0;i<n;i++){const s=document.createElement("span");s.className="obj";s.innerHTML=objSVG(big?OBJ_FOR[d-10]:d);
-    s.onclick=()=>{s.classList.remove("on");void s.offsetWidth;s.classList.add("on");tone(500+i*70,.12);sayName(d===0?0:i+1);};o.appendChild(s);}
-  later(()=>sayName(d,()=>sayName("draw",()=>sayName(d))),350);
+  homeMode="numbers";homePageIdx=pageOf(d);
+  const n=d===0?1:d,big=d>=10,huge=d>20;
+  o.style.gridTemplateColumns="repeat("+(huge?10:big?5:[1,1,2,2,2,3,3,3,3,3][d])+",1fr)";
+  const card=$("card");card.style.borderColor=COLORS[ci(d)];card.style.background="#fffaf1";
+  for(let i=0;i<n;i++){const s=document.createElement("span");s.className="obj";s.innerHTML=huge?dotSVG(d,i):objSVG(big?OBJ_FOR[d-10]:d);
+    s.onclick=()=>{s.classList.remove("on");void s.offsetWidth;s.classList.add("on");tone(500+i*70,.12);sayNum(d===0?0:i+1);};o.appendChild(s);}
+  later(()=>sayNum(d,()=>sayName("draw",()=>sayNum(d))),350);
 }
 const toUnit=e=>{const r=cv.getBoundingClientRect();return [(e.clientX-r.left-ox)/scale,(e.clientY-r.top-oy)/scale];};
 function scan(wp,u){
@@ -531,10 +562,12 @@ function win(){
   const n=cur===0?0:cur;
   const objs=[...document.querySelectorAll(".obj")];
   if(cur===0){later(()=>{objs[0].classList.add("on");sayName(0);},700);}
+  else if(cur>20){objs.forEach((o,i)=>later(()=>{o.classList.add("on");if(i%10===0)tone(420+Math.floor(i/10)*40,.1);},500+Math.floor(i/10)*300+(i%10)*20));
+    later(()=>{sayNum(cur);$("next").classList.add("show");},500+Math.ceil(n/10)*300+400);return;}
   else if(cur>=10){objs.forEach((o,i)=>later(()=>{o.classList.add("on");tone(420+i*28,.09);},600+i*230));
-    later(()=>{sayName(cur);$("next").classList.add("show");},600+n*230+300);return;}
+    later(()=>{sayNum(cur);$("next").classList.add("show");},600+n*230+300);return;}
   else objs.forEach((o,i)=>later(()=>{o.classList.add("on");tone(500+i*70,.12);sayName(i+1);},700+i*1000));
-  later(()=>{sayName(cur);$("next").classList.add("show");},700+Math.max(n,1)*1000+300);
+  later(()=>{sayNum(cur);$("next").classList.add("show");},700+Math.max(n,1)*1000+300);
 }
 
 /* ---------- full-screen sprinkles / hearts / sparkles ---------- */
@@ -587,7 +620,7 @@ function frame(t){
   }
   if(want){
     ctx.clearRect(0,0,W,H);ctx.lineCap="round";ctx.lineJoin="round";
-    const S=NUMBERS[cur],DR=DRAW[cur],O=COLORS[cur%10],Pp=PASTEL[cur%10];
+    const S=NUMBERS[cur],DR=DRAW[cur],O=COLORS[ci(cur)],Pp=PASTEL[ci(cur)];
     const Pat=crayon(Pp),PatD=crayon(mixHex(Pp,O,.5));
     const dpts=(i)=>(i===strokeIdx&&LOOPS[cur][i]&&dirRev)?DRAWREV[cur][i]:DR[i];
     ctx.setLineDash([]);
@@ -665,7 +698,7 @@ function nextRound(){
 $("findBtn").onclick=()=>{tone(600,.1);startFind();};
 $("homeP").onclick=()=>show("home");
 $("homeF").onclick=()=>show("home");
-$("sayP").onclick=()=>sayName(cur);
+$("sayP").onclick=()=>sayNum(cur);
 $("sayF").onclick=()=>sayName("prompt",()=>sayName(target));
 $("homeR").onclick=()=>show("home");
 $("redo").onclick=()=>startPlay(cur);
@@ -673,7 +706,7 @@ $("expR").onclick=exportRecs;$("impR").onclick=()=>$("impIn").click();
 $("impIn").onchange=e=>{const fl=Array.from(e.target.files);importFiles(fl).then(()=>{e.target.value="";});};
 [["homeP","home"],["homeF","home"],["homeR","home"],["sayP","say"],["redo","redo"],["sayF","say"],["next","next"],["gear","gear"],["expR","export"],["impR","import"]].forEach(([id,n])=>{$(id).innerHTML=iconSVG(n);});
 $("findBtn").innerHTML=iconSVG("play")+"<span>שנשחק?</span>";
-$("pageBtn").onclick=()=>{homePage=homePage?0:1;renderHome();};
+$("pageBtn").onclick=()=>{homeMode="ranges";renderHome();};
 let gearT=null;
 const gearEl=$("gear");
 const gearDown=()=>{gearEl.classList.add("hold");clearTimeout(gearT);gearT=setTimeout(()=>{gearEl.classList.remove("hold");show("rec");},800);};
@@ -682,7 +715,7 @@ gearEl.addEventListener("pointerdown",gearDown);
 gearEl.addEventListener("mousedown",gearDown);gearEl.addEventListener("touchstart",gearDown,{passive:true});
 ["pointerup","pointercancel","mouseup","mouseleave","touchend","touchcancel"].forEach(ev=>gearEl.addEventListener(ev,gearUp));
 if(/[?&]rec\b/.test(location.search))show("rec");
-$("next").onclick=()=>{const hi=cur>=10?20:9,lo=cur>=10?10:0;startPlay(cur>=hi?lo:cur+1);};
+$("next").onclick=()=>startPlay(cur>=100?0:cur+1);
 addDeco($("home"));addDeco($("card"));addDeco($("find"));
 loadRecs();loadSiteVoices();
 renderHome();
