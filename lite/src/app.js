@@ -143,25 +143,27 @@ function sayName(n, cb) {
   var my = ++sayTok, fin = false;
   stopVoice();
   function done() { if (fin) return; fin = true; if (cb && my === sayTok) cb(); }
-  function fallback() { if (my !== sayTok) return; speak(PHRASE[n] || NAMES[n], done); }
+  function fallback() { if (my !== sayTok) return; try { lastAudioErr = (voiceEl.error ? "code " + voiceEl.error.code : "play") + " (" + n + ")"; } catch (e) {} speak(PHRASE[n] || NAMES[n], done); }
   voiceEl.onended = done;
   voiceEl.onerror = fallback;
-  try { voiceEl.src = voiceUrl(n); var p = voiceEl.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+  try { voiceEl.src = voiceUrl(n); try { voiceEl.load(); } catch (e2) {} var p = voiceEl.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
 }
-var unlocked = false;
+var unlocked = false, SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=";
 function unlockAudio() {
   if (unlocked) return; unlocked = true;
   ensureAC();
   try { var ac = AC; if (ac) { var b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); if (s.start) s.start(0); else s.noteOn(0); } } catch (e) {}
-  try { voiceEl.src = "data:audio/mp4;base64,"; } catch (e) {}
+  try { voiceEl.src = SILENT; voiceEl.load(); var up = voiceEl.play(); if (up && up.catch) up.catch(function () {}); } catch (e) {}
 }
-document.addEventListener("touchstart", unlockAudio, true);
+document.addEventListener("touchend", unlockAudio, true);
+document.addEventListener("click", unlockAudio, true);
 document.addEventListener("mousedown", unlockAudio, true);
 
 /* ---------- imported voice recordings (stored on this device only) ---------- */
 var VKEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "draw", "praise", "prompt", "oops", "retry"];
 function voiceGet(k) { try { return localStorage.getItem("voice_" + k); } catch (e) { return null; } }
-function voiceUrl(n) { return voiceGet(n) || ("audio/" + n + ".m4a"); }
+function voiceUrl(n) { return voiceGet(n) || ("audio/" + n + ".wav"); }
+var lastAudioErr = "-";
 function readZip(buf) {
   var dv = new DataView(buf), u8 = new Uint8Array(buf), out = [], p = 0;
   while (p + 30 <= buf.byteLength && dv.getUint32(p, true) === 0x04034b50) {
@@ -509,6 +511,9 @@ function renderRec() {
     }
     list.appendChild(row);
   });
+  var dg = document.createElement("div"); dg.className = "diag";
+  dg.textContent = "אבחון שמע: wav=" + (voiceEl.canPlayType ? (voiceEl.canPlayType("audio/wav") || "no") : "?") + " | שגיאה אחרונה: " + lastAudioErr;
+  list.appendChild(dg);
   layout();
 }
 

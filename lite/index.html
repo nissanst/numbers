@@ -63,6 +63,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
 .rd{display:inline-block;width:34px;height:46px}.rd svg{width:100%;height:100%}
 .rl{color:#6b4a4a;font-size:15px;line-height:1.25;text-align:right}
 .rok{width:26px;height:26px;margin:0 10px}.rok svg{width:100%;height:100%}
+.diag{display:block;margin:14px 8px 0;color:#9a8574;font-size:13px;direction:rtl;text-align:center}
 .rb2{position:relative;border-radius:50%;background:#fffaf1;border:2px solid #e9cdb0;margin-left:8px;-webkit-flex:none;flex:none}
 .rb2 svg{position:absolute;left:13%;top:13%;width:74%;height:74%}
 #fx{position:fixed;left:0;top:0;pointer-events:none;z-index:50}
@@ -445,19 +446,26 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     }
     function fallback() {
       if (my !== sayTok) return;
+      try {
+        lastAudioErr = (voiceEl.error ? "code " + voiceEl.error.code : "play") + " (" + n + ")";
+      } catch (e) {}
       speak(PHRASE[n] || NAMES[n], done);
     }
     voiceEl.onended = done;
     voiceEl.onerror = fallback;
     try {
       voiceEl.src = voiceUrl(n);
+      try {
+        voiceEl.load();
+      } catch (e2) {}
       var p = voiceEl.play();
       if (p && p.catch) p.catch(fallback);
     } catch (e) {
       fallback();
     }
   }
-  var unlocked = false;
+  var unlocked = false,
+    SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=";
   function unlockAudio() {
     if (unlocked) return;
     unlocked = true;
@@ -473,10 +481,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
       }
     } catch (e) {}
     try {
-      voiceEl.src = "data:audio/mp4;base64,";
+      voiceEl.src = SILENT;
+      voiceEl.load();
+      var up = voiceEl.play();
+      if (up && up.catch) up.catch(function () {});
     } catch (e) {}
   }
-  document.addEventListener("touchstart", unlockAudio, true);
+  document.addEventListener("touchend", unlockAudio, true);
+  document.addEventListener("click", unlockAudio, true);
   document.addEventListener("mousedown", unlockAudio, true);
 
   /* ---------- imported voice recordings (stored on this device only) ---------- */
@@ -489,8 +501,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     }
   }
   function voiceUrl(n) {
-    return voiceGet(n) || "audio/" + n + ".m4a";
+    return voiceGet(n) || "audio/" + n + ".wav";
   }
+  var lastAudioErr = "-";
   function readZip(buf) {
     var dv = new DataView(buf),
       u8 = new Uint8Array(buf),
@@ -1322,6 +1335,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
       }
       list.appendChild(row);
     });
+    var dg = document.createElement("div");
+    dg.className = "diag";
+    dg.textContent = "אבחון שמע: wav=" + (voiceEl.canPlayType ? voiceEl.canPlayType("audio/wav") || "no" : "?") + " | שגיאה אחרונה: " + lastAudioErr;
+    list.appendChild(dg);
     layout();
   }
 

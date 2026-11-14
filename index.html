@@ -310,7 +310,7 @@ function sayName(n,cb){
 }
 async function loadSiteVoices(){
   for(const k of [0,1,2,3,4,5,6,7,8,9,"draw","praise","prompt","oops","retry"]){
-    try{const r=await fetch("lite/audio/"+k+".m4a");if(!r.ok)continue;siteRecs[k]=await decodeRec(new Blob([await r.arrayBuffer()],{type:"audio/mp4"}));}catch(e){}
+    try{const r=await fetch("lite/audio/"+k+".wav");if(!r.ok)continue;siteRecs[k]=await decodeRec(new Blob([await r.arrayBuffer()],{type:"audio/wav"}));}catch(e){}
   }
 }
 async function saveRec(d,blob){await dbPut(d,blob);recs[d]=await decodeRec(blob);}
