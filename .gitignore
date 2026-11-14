@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+*.m4a
+*.mp3
+*.wav
+*.zip
+CLAUDE.md

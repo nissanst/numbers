@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="מספרים">
+<title>מספרים</title>
+<style>
+*{-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-tap-highlight-color:rgba(0,0,0,0);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"Arial Rounded MT Bold",-apple-system,Helvetica,Arial,sans-serif}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;display:none}
+.screen.on{display:block}
+.deco{position:absolute;pointer-events:none}
+.deco svg{width:100%;height:100%;display:block}
+.bar{position:relative;z-index:2;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;padding:0 3%;height:80px}
+.grp{display:-webkit-box;display:-webkit-flex;display:flex}
+.grp .round{margin:0 10px}
+.round{position:relative;width:64px;height:64px;border-radius:50%;background:#fffaf1;border:3px solid #e9cdb0;-webkit-box-shadow:0 3px 12px rgba(160,110,70,.16);box-shadow:0 3px 12px rgba(160,110,70,.16)}
+.round svg{position:absolute;left:13%;top:13%;width:74%;height:74%}
+#homeP,#homeF{background:#fff0dd;border-color:#f0b27a}
+#sayP,#sayF{background:#eaf6fd;border-color:#8fc6e3}
+#redo{background:#fde9ee;border-color:#eb9ab0}
+#next{background:#e9f7ef;border-color:#8fd0b0;visibility:hidden}
+#next.show{visibility:visible;-webkit-animation:wob 1s infinite;animation:wob 1s infinite}
+@-webkit-keyframes wob{50%{-webkit-transform:scale(1.13)}}
+@keyframes wob{50%{transform:scale(1.13)}}
+#home{text-align:center}
+#homeIn{padding-top:20px}
+#grid{margin:0 auto;font-size:0;position:relative;z-index:2}
+.tile{display:inline-block;vertical-align:top;position:relative;background:#fffaf1;border:4px solid #ccc;border-radius:16px;padding:8px;-webkit-box-shadow:0 6px 22px rgba(160,110,70,.14);box-shadow:0 6px 22px rgba(160,110,70,.14)}
+.ti{position:relative;width:100%;padding-bottom:125%}
+.ti svg{position:absolute;left:0;top:0;width:100%;height:100%}
+.stars{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:0;line-height:0}
+.stars svg{width:20px;height:20px;margin:0 1px}
+#findBtn{display:inline-block;margin-top:14px;position:relative;z-index:2;background:#fde9ee;border:3px solid #eb9ab0;border-radius:999px;padding:0 28px;color:#6b4a4a;font-weight:bold;direction:rtl;white-space:nowrap;-webkit-box-shadow:0 6px 22px rgba(235,154,176,.28);box-shadow:0 6px 22px rgba(235,154,176,.28)}
+#findBtn svg{width:1.5em;height:1.5em;vertical-align:middle;margin-left:10px}
+#findBtn span{vertical-align:middle}
+#card{position:absolute;border:3px dashed #ccc;border-radius:28px;background:#fffaf1;overflow:hidden}
+#objs{position:absolute}
+#objsIn{position:absolute}
+.obj{float:left;position:relative}
+.obj svg{position:absolute;left:0;top:0;width:100%;height:100%}
+.obj.on{-webkit-animation:pop .5s;animation:pop .5s}
+@-webkit-keyframes pop{0%{-webkit-transform:scale(.2)}60%{-webkit-transform:scale(1.35)}100%{-webkit-transform:scale(1)}}
+@keyframes pop{0%{transform:scale(.2)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+#cv{position:absolute;display:block}
+#cards{position:absolute;left:0;right:0;text-align:center;font-size:0;z-index:2}
+.card{display:inline-block;position:relative;background:#fffaf1;border:5px solid #ccc;border-radius:22px;padding:12px;-webkit-box-shadow:0 8px 26px rgba(160,110,70,.14);box-shadow:0 8px 26px rgba(160,110,70,.14)}
+.card svg{width:100%;height:100%;display:block}
+.card.good{background:#effaf3;-webkit-animation:pop .5s;animation:pop .5s}
+.card.bad{-webkit-animation:shake .4s;animation:shake .4s}
+@-webkit-keyframes shake{25%{-webkit-transform:translateX(-14px)}75%{-webkit-transform:translateX(14px)}}
+@keyframes shake{25%{transform:translateX(-14px)}75%{transform:translateX(14px)}}
+#fx{position:fixed;left:0;top:0;pointer-events:none;z-index:50}
+</style>
+</head>
+<body>
+
+<div id="home" class="screen on"><div id="homeIn"><div id="grid"></div><div id="findBtn"></div></div></div>
+
+<div id="play" class="screen">
+  <div class="bar">
+    <div class="round" id="homeP"></div>
+    <div class="grp"><div class="round" id="sayP"></div><div class="round" id="redo"></div></div>
+    <div class="round" id="next"></div>
+  </div>
+  <div id="card">
+    <div id="objs"><div id="objsIn"></div></div>
+    <canvas id="cv"></canvas>
+  </div>
+</div>
+
+<div id="find" class="screen">
+  <div class="bar">
+    <div class="round" id="homeF"></div>
+    <div class="round" id="sayF"></div>
+    <div style="width:64px"></div>
+  </div>
+  <div id="cards"></div>
+</div>
+
+<canvas id="fx"></canvas>
+
+<script>
+/*APP*/
+</script>
+</body>
+</html>
