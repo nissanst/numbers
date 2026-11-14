@@ -37,7 +37,7 @@ var RAW = [
 ];
 var DIGITS = RAW.map(function (strokes) { return strokes.map(function (s) { return resample(s, 5); }); });
 var NAMES = ["אפס", "אחת", "שתיים", "שלוש", "ארבע", "חמש", "שש", "שבע", "שמונה", "תשע", "עשר", "אחת עשרה", "שתים עשרה", "שלוש עשרה", "ארבע עשרה", "חמש עשרה", "שש עשרה", "שבע עשרה", "שמונה עשרה", "תשע עשרה", "עשרים"];
-var MAXN = 20, GAP = 230, NUMBERS = [], LOOPS = [];
+var MAXN = 100, GAP = 230, NUMBERS = [], LOOPS = [];
 (function () {
   for (var n = 0; n <= MAXN; n++) {
     var S = [], L = [];
@@ -46,8 +46,16 @@ var MAXN = 20, GAP = 230, NUMBERS = [], LOOPS = [];
   }
 })();
 var REV = NUMBERS.map(function (S) { return S.map(function (st) { return st.slice().reverse(); }); });
-function unitW(n) { return n >= 10 ? 200 + GAP : 200; }
+function unitW(n) { return 200 + (String(n).length - 1) * GAP; }
 var OBJ_FOR = [5, 6, 3, 4, 1, 2, 7, 8, 9, 5, 3];
+var TENS = { 20: "עשרים", 30: "שלושים", 40: "ארבעים", 50: "חמישים", 60: "שישים", 70: "שבעים", 80: "שמונים", 90: "תשעים", 100: "מאה" };
+var VU = ["", "ואחת", "ושתיים", "ושלוש", "וארבע", "וחמש", "ושש", "ושבע", "ושמונה", "ותשע"];
+function nameOf(k) { return typeof k === "string" ? (/^v\d$/.test(k) ? VU[+k.charAt(1)] : k) : (k <= 20 ? NAMES[k] : TENS[k]); }
+function ci(n) { return n < 10 ? n : (n >= 100 ? 0 : Math.floor(n / 10)); }
+function pageOf(n) { return n === 0 ? 0 : Math.ceil(n / 10) - 1; }
+function pageNums(p) { var a = []; if (p === 0) { for (var i = 0; i <= 10; i++) a.push(i); } else { for (var j = 1; j <= 10; j++) a.push(p * 10 + j); } return a; }
+function rangeLabel(p) { return p === 0 ? "1\u201310" : (p * 10 + 1) + "\u2013" + (p * 10 + 10); }
+var homeMode = "ranges", homePageIdx = 0;
 var PHRASE = { draw: "עכשיו נצייר עם האצבע את הספרה", praise: "כל הכבוד, הצלחת!", prompt: "תבחרי מתוך המספרים את הספרה", oops: "אופס, בחרת בטעות את הספרה", retry: "בואי ננסה שוב ללחוץ על" };
 var COLORS = ["#6fbf9e", "#e07c97", "#eb9a5c", "#6fb3d8", "#9b82cf", "#e8b84a", "#c982b8", "#5fbdb3", "#e5806a", "#d9708a"];
 var PASTEL = ["#bfe8d4", "#f9b8c6", "#ffd3a8", "#bfe3f5", "#d8c8f2", "#ffe9a0", "#f0c4e6", "#b5ece6", "#ffc4b0", "#f6a9bd"];
@@ -58,7 +66,7 @@ var COLS = [1, 1, 2, 2, 2, 3, 3, 3, 3, 3];
 function digitSVG(d) {
   var pts = NUMBERS[d].map(function (s) { return s.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" "); });
   function L(w, c, extra) { return pts.map(function (p) { return '<polyline points="' + p + '" fill="none" stroke="' + c + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round" ' + (extra || "") + "/>"; }).join(""); }
-  return '<svg viewBox="-20 0 ' + (unitW(d) + 40) + ' 300">' + L(47, COLORS[d % 10]) + L(44, PASTEL[d % 10]) + L(2.6, COLORS[d % 10], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
+  return '<svg viewBox="-20 0 ' + (unitW(d) + 40) + ' 300">' + L(47, COLORS[ci(d)]) + L(44, PASTEL[ci(d)]) + L(2.6, COLORS[ci(d)], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
 }
 function FACE(x, y, k) {
   return '<circle cx="' + (x - 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/><circle cx="' + (x + 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/>' +
@@ -118,8 +126,8 @@ function addDeco(el) {
 }
 
 /* ---------- storage ---------- */
-var stars = []; for (var si = 0; si < 21; si++) stars.push(0);
-try { var sv = JSON.parse(localStorage.getItem("numstars") || "null"); if (sv && sv.length) for (var sj = 0; sj < sv.length && sj < 21; sj++) stars[sj] = sv[sj] || 0; } catch (e) {}
+var stars = []; for (var si = 0; si < 101; si++) stars.push(0);
+try { var sv = JSON.parse(localStorage.getItem("numstars") || "null"); if (sv && sv.length) for (var sj = 0; sj < sv.length && sj < 101; sj++) stars[sj] = sv[sj] || 0; } catch (e) {}
 function saveStars() { try { localStorage.setItem("numstars", JSON.stringify(stars)); } catch (e) {} }
 
 /* ---------- sound: recorded files first, device voice as fallback ---------- */
@@ -168,6 +176,14 @@ function getBuffer(n, cb) {
   x.onerror = function () { lastAudioErr = "xhr " + n; finish(null); };
   x.send();
 }
+function dotSVG(d, i) {
+  var c = ci(d), row = Math.floor(i / 10) % 2, fill = row ? mixHex(PASTEL[c], COLORS[c], 0.45) : PASTEL[c];
+  return '<svg viewBox="0 0 100 100"><path d="M50 8L62 36L92 38L69 58L77 90L50 72L23 90L31 58L8 38L38 36Z" fill="' + fill + '" stroke="' + COLORS[c] + '" stroke-width="5" stroke-linejoin="round"/></svg>';
+}
+function sayNum(n, cb) {
+  if (n <= 20 || n % 10 === 0) sayName(n, cb);
+  else sayName(Math.floor(n / 10) * 10, function () { sayName("v" + (n % 10), cb); });
+}
 function stopVoice() {
   clearTimeout(voiceTimer);
   if (curBufSrc) { try { if (curBufSrc.stop) curBufSrc.stop(0); else curBufSrc.noteOff(0); } catch (e) {} curBufSrc = null; }
@@ -178,7 +194,7 @@ function sayName(n, cb) {
   var my = ++sayTok, fin = false;
   stopVoice();
   function done() { if (fin) return; fin = true; if (cb && my === sayTok) cb(); }
-  function viaTTS() { if (my !== sayTok) return; speak(PHRASE[n] || NAMES[n], done); }
+  function viaTTS() { if (my !== sayTok) return; speak(PHRASE[n] || nameOf(n), done); }
   function viaElement() {
     voiceEl.onended = done;
     voiceEl.onerror = function () { if (my !== sayTok) return; try { lastAudioErr = (voiceEl.error ? "media code " + voiceEl.error.code : "play") + " (" + n + ")"; } catch (e) {} viaTTS(); };
@@ -206,7 +222,8 @@ document.addEventListener("click", unlockAudio, true);
 document.addEventListener("mousedown", unlockAudio, true);
 
 /* ---------- imported voice recordings (stored on this device only) ---------- */
-var VKEYS = []; for (var vi = 0; vi <= 20; vi++) VKEYS.push(vi); VKEYS.push("draw", "praise", "prompt", "oops", "retry");
+var VKEYS = []; for (var vi = 0; vi <= 20; vi++) VKEYS.push(vi); for (var vt = 30; vt <= 100; vt += 10) VKEYS.push(vt);
+for (var vu = 1; vu <= 9; vu++) VKEYS.push("v" + vu); VKEYS.push("draw", "praise", "prompt", "oops", "retry");
 function voiceGet(k) { try { return localStorage.getItem("voice_" + k); } catch (e) { return null; } }
 function voiceUrl(n) { return voiceGet(n) || ("audio/" + n + ".wav"); }
 var lastAudioErr = "-";
@@ -233,7 +250,7 @@ function importFiles(files, finished) {
   function store() {
     items.forEach(function (it) {
       var base = it.name.replace(/^.*\//, "").replace(/\.[^.]+$/, ""), ext = (it.name.match(/\.([^.]+)$/) || [, ""])[1].toLowerCase();
-      var isDigit = /^\d{1,2}$/.test(base) && Number(base) <= 20, okKey = isDigit || ["draw", "praise", "prompt", "oops", "retry"].indexOf(base) >= 0;
+      var isDigit = /^\d{1,3}$/.test(base) && VKEYS.indexOf(Number(base)) >= 0, okKey = isDigit || VKEYS.indexOf(base) >= 0;
       var mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : (ext === "m4a" || ext === "mp4") ? "audio/mp4" : "";
       if (!okKey || !mime) { bad++; return; }
       try { localStorage.setItem("voice_" + base, toDataURI(it.data, mime)); n++; } catch (e) { bad++; }
@@ -285,7 +302,7 @@ function layout() {
   dirty = true;
 }
 function layoutHome() {
-  var portrait = H > W, per = portrait ? 4 : 5, rows = Math.ceil((homePage ? 11 : 10) / per), mg = U * 1.3, ratio = homePage ? 0.64 : 1.25;
+  var portrait = H > W, per = portrait ? 4 : 5, rows = Math.ceil((homeMode === "ranges" ? 10 : pageNums(homePageIdx).length) / per), mg = U * 1.3, ratio = homeMode === "ranges" ? 0.75 : (homePageIdx === 0 ? 0.9 : 0.64);
   var btnH = Math.max(46, U * 12), fs = Math.max(18, U * 4.6);
   var gw = Math.min(W * 0.94, H * 1.25);
   var tw = Math.floor(gw / per - 2 * mg);
@@ -307,7 +324,7 @@ function layoutPlay(barH) {
   card.style.left = m + "px"; card.style.top = barH + "px"; card.style.width = cw + "px"; card.style.height = ch + "px";
   var land = cw > ch * 1.05, ow = land ? cw * 0.46 : cw, oh = land ? ch : ch * 0.36;
   var objs = $("objs"); objs.style.left = "0px"; objs.style.top = "0px"; objs.style.width = ow + "px"; objs.style.height = oh + "px";
-  var n = cur === 0 ? 1 : cur, cols = cur >= 10 ? 5 : COLS[cur], rows = Math.ceil(n / cols), pad = U * 2;
+  var n = cur === 0 ? 1 : cur, cols = cur > 20 ? 10 : cur >= 10 ? 5 : COLS[cur], rows = Math.ceil(n / cols), pad = U * 2;
   var s = Math.floor(Math.min((ow - 2 * pad) / cols, (oh - 2 * pad) / rows));
   var inn = $("objsIn"); inn.style.width = (cols * s) + "px"; inn.style.left = ((ow - cols * s) / 2) + "px"; inn.style.top = ((oh - rows * s) / 2) + "px";
   var os = inn.children; for (var i = 0; i < os.length; i++) { os[i].style.width = s + "px"; os[i].style.height = s + "px"; }
@@ -329,18 +346,33 @@ window.addEventListener("resize", function () { layout(); });
 window.addEventListener("orientationchange", function () { setTimeout(layout, 250); });
 
 /* ---------- home ---------- */
-var homePage = 0;
+function rangeSVG(p) {
+  var nums = pageNums(p), c = COLORS[p % 10], pa = PASTEL[p % 10], dots = "";
+  for (var i = 0; i < nums.length; i++) dots += '<circle cx="' + (100 + (i - (nums.length - 1) / 2) * 15.5) + '" cy="120" r="5.4" fill="' + (stars[nums[i]] > 0 ? c : "#e6dccd") + '"/>';
+  return '<svg viewBox="0 0 200 150"><rect x="6" y="6" width="188" height="138" rx="26" fill="' + pa + '" opacity=".55"/><text x="100" y="82" text-anchor="middle" font-family="Arial Rounded MT Bold,Arial,sans-serif" font-weight="bold" font-size="' + (p < 9 ? 54 : 46) + '" fill="none" stroke="#fffaf1" stroke-width="6" stroke-linejoin="round">' + rangeLabel(p) + '</text><text x="100" y="82" text-anchor="middle" font-family="Arial Rounded MT Bold,Arial,sans-serif" font-weight="bold" font-size="' + (p < 9 ? 54 : 46) + '" fill="' + c + '">' + rangeLabel(p) + "</text>" + dots + "</svg>";
+}
 function renderHome() {
   var g = $("grid"); g.innerHTML = "";
-  var nums = homePage ? [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-  $("pageBtn").innerHTML = iconSVG("next"); $("pageBtn").className = "round" + (homePage ? " back" : "");
-  nums.forEach(function (d) {
-    var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[d % 10];
-    var st = ""; for (var k = 0; k < Math.min(stars[d], 3); k++) st += iconSVG("star");
-    t.innerHTML = '<div class="ti" style="padding-bottom:' + (homePage ? "64%" : "125%") + '">' + digitSVG(d) + '</div><div class="stars">' + st + "</div>";
-    tap(t, function () { startPlay(d); });
-    g.appendChild(t);
-  });
+  var pb = $("pageBtn");
+  if (homeMode === "ranges") {
+    pb.style.display = "none";
+    for (var p = 0; p < 10; p++) (function (p) {
+      var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[p % 10];
+      t.innerHTML = '<div class="ti" style="padding-bottom:75%">' + rangeSVG(p) + "</div>";
+      tap(t, function () { homeMode = "numbers"; homePageIdx = p; renderHome(); });
+      g.appendChild(t);
+    })(p);
+  } else {
+    pb.style.display = "inline-block"; pb.innerHTML = iconSVG("next"); pb.className = "round back";
+    var pad = homePageIdx === 0 ? "90%" : "64%";
+    pageNums(homePageIdx).forEach(function (d) {
+      var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[ci(d)];
+      var st = ""; for (var k = 0; k < Math.min(stars[d], 3); k++) st += iconSVG("star");
+      t.innerHTML = '<div class="ti" style="padding-bottom:' + pad + '">' + digitSVG(d) + '</div><div class="stars">' + st + "</div>";
+      tap(t, function () { startPlay(d); });
+      g.appendChild(t);
+    });
+  }
   layoutHome();
 }
 function tap(el, fn) {
@@ -359,15 +391,16 @@ function startPlay(d) {
   cur = d; strokeIdx = 0; pos = 0; drawing = false; done = false; dirRev = false; lastTouch = Date.now();
   show("play"); $("next").className = "round";
   var o = $("objsIn"); o.innerHTML = "";
-  var n = d === 0 ? 1 : d, big = d >= 10;
-  $("card").style.borderColor = COLORS[d % 10];
+  homeMode = "numbers"; homePageIdx = pageOf(d);
+  var n = d === 0 ? 1 : d, big = d >= 10, huge = d > 20;
+  $("card").style.borderColor = COLORS[ci(d)];
   for (var i = 0; i < n; i++) (function (i) {
-    var s = document.createElement("div"); s.className = "obj"; s.innerHTML = objSVG(big ? OBJ_FOR[d - 10] : d);
-    tap(s, function () { s.className = "obj"; void s.offsetWidth; s.className = "obj on"; tone(500 + i * 70, 0.12); sayName(d === 0 ? 0 : i + 1); });
+    var s = document.createElement("div"); s.className = "obj"; s.innerHTML = huge ? dotSVG(d, i) : objSVG(big ? OBJ_FOR[d - 10] : d);
+    tap(s, function () { s.className = "obj"; void s.offsetWidth; s.className = "obj on"; tone(500 + i * 70, 0.12); sayNum(d === 0 ? 0 : i + 1); });
     o.appendChild(s);
   })(i);
   layout();
-  later(function () { sayName(d, function () { sayName("draw", function () { sayName(d); }); }); }, 350);
+  later(function () { sayNum(d, function () { sayName("draw", function () { sayNum(d); }); }); }, 350);
 }
 function scan(wp, u) {
   for (var j = Math.min(wp.length - 1, pos + WIN); j >= pos; j--) { if (Math.hypot(u[0] - wp[j][0], u[1] - wp[j][1]) < R + (j === pos ? 18 : 0)) return j; }
@@ -418,13 +451,18 @@ function win() {
   fanfare(); confetti();
   var n = cur === 0 ? 0 : cur, objs = $("objsIn").children;
   if (cur === 0) later(function () { objs[0].className = "obj on"; sayName(0); }, 700);
+  else if (cur > 20) {
+    for (var h = 0; h < objs.length; h++) (function (h) { later(function () { objs[h].className = "obj on"; if (h % 10 === 0) tone(420 + Math.floor(h / 10) * 40, 0.1); }, 500 + Math.floor(h / 10) * 300 + (h % 10) * 20); })(h);
+    later(function () { sayNum(cur); $("next").className = "round show"; }, 500 + Math.ceil(n / 10) * 300 + 400);
+    return;
+  }
   else if (cur >= 10) {
     for (var q = 0; q < objs.length; q++) (function (q) { later(function () { objs[q].className = "obj on"; tone(420 + q * 28, 0.09); }, 600 + q * 230); })(q);
-    later(function () { sayName(cur); $("next").className = "round show"; }, 600 + n * 230 + 300);
+    later(function () { sayNum(cur); $("next").className = "round show"; }, 600 + n * 230 + 300);
     return;
   }
   else for (var i = 0; i < objs.length; i++) (function (i) { later(function () { objs[i].className = "obj on"; tone(500 + i * 70, 0.12); sayName(i + 1); }, 700 + i * 1000); })(i);
-  later(function () { sayName(cur); $("next").className = "round show"; }, 700 + Math.max(n, 1) * 1000 + 300);
+  later(function () { sayNum(cur); $("next").className = "round show"; }, 700 + Math.max(n, 1) * 1000 + 300);
 }
 
 /* ---------- canvas drawing ---------- */
@@ -445,7 +483,7 @@ function sparkPath(g, r) { g.beginPath(); g.moveTo(0, -r); g.quadraticCurveTo(0,
 function setDash(a) { if (ctx.setLineDash) ctx.setLineDash(a); }
 function drawPlay() {
   ctx.clearRect(0, 0, cvW, cvH); ctx.lineCap = "round"; ctx.lineJoin = "round";
-  var S = NUMBERS[cur], O = COLORS[cur % 10], Pp = PASTEL[cur % 10], Pat = crayon(Pp), PatD = crayon(mixHex(Pp, O, 0.5)), i;
+  var S = NUMBERS[cur], O = COLORS[ci(cur)], Pp = PASTEL[ci(cur)], Pat = crayon(Pp), PatD = crayon(mixHex(Pp, O, 0.5)), i;
   setDash([]);
   for (i = 0; i < S.length; i++) { pathOf(S[i]); ctx.lineWidth = 47 * scale; ctx.strokeStyle = O; ctx.stroke(); }
   for (i = 0; i < S.length; i++) { pathOf(S[i]); ctx.lineWidth = 44 * scale; ctx.strokeStyle = Pat; ctx.stroke(); }
@@ -555,7 +593,7 @@ function renderRec() {
   var list = $("recList"); list.innerHTML = "";
   VKEYS.forEach(function (k) {
     var row = document.createElement("div"); row.className = "rrow";
-    var label = typeof k === "number" ? '<div class="rd' + (k >= 10 ? " w" : "") + '">' + digitSVG(k) + "</div>" : '<div class="rl">' + PHRASE[k] + "</div>";
+    var label = typeof k === "number" ? '<div class="rd' + (k >= 100 ? " w3" : k >= 10 ? " w" : "") + '">' + digitSVG(k) + "</div>" : '<div class="rl">' + (PHRASE[k] || nameOf(k)) + "</div>";
     var have = !!voiceGet(k);
     row.innerHTML = '<div class="rlw">' + label + "</div>" + (have ? '<div class="rok">' + iconSVG("check") + "</div>" : "");
     if (have) {
@@ -576,9 +614,9 @@ $("sayP").innerHTML = iconSVG("say"); $("sayF").innerHTML = iconSVG("say");
 $("redo").innerHTML = iconSVG("redo"); $("next").innerHTML = iconSVG("next");
 $("findBtn").innerHTML = iconSVG("play") + "<span>שנשחק?</span>";
 tap($("homeP"), function () { show("home"); }); tap($("homeF"), function () { show("home"); });
-tap($("sayP"), function () { sayName(cur); }); tap($("sayF"), function () { sayName("prompt", function () { sayName(target); }); });
-tap($("redo"), function () { startPlay(cur); }); tap($("next"), function () { var hi = cur >= 10 ? 20 : 9, lo = cur >= 10 ? 10 : 0; startPlay(cur >= hi ? lo : cur + 1); });
-tap($("pageBtn"), function () { homePage = homePage ? 0 : 1; renderHome(); });
+tap($("sayP"), function () { sayNum(cur); }); tap($("sayF"), function () { sayName("prompt", function () { sayName(target); }); });
+tap($("redo"), function () { startPlay(cur); }); tap($("next"), function () { startPlay(cur >= 100 ? 0 : cur + 1); });
+tap($("pageBtn"), function () { homeMode = "ranges"; renderHome(); });
 tap($("findBtn"), function () { tone(600, 0.1); startFind(); });
 $("homeR").innerHTML = iconSVG("home"); $("impR").innerHTML = iconSVG("import"); $("gear").innerHTML = iconSVG("gear");
 tap($("homeR"), function () { show("home"); });
