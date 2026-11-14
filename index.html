@@ -68,7 +68,6 @@ button{font:inherit;border:0;cursor:pointer}
 .rrow{min-height:60px;display:flex;align-items:center;gap:10px;background:#fff0dd;border-radius:16px;padding:8px 22px}
 .rd.w{width:12vmin;max-width:76px}
 .rd.w3{width:18vmin;max-width:110px}
-.tile.range{padding:1.4vmin}
 .rd{flex:none;width:7vmin;min-width:30px;max-width:44px;height:9vmin;min-height:44px;max-height:60px}.rd svg{width:100%;height:100%}
 .rd.p{flex:1 1 auto;min-width:0;width:auto;max-width:none;max-height:none;height:auto;min-height:44px;display:flex;align-items:center;gap:1vmin;font-size:max(14px,2.2vmin);color:#6b4a4a;direction:rtl;white-space:normal;line-height:1.25}.rd.p svg{flex:none;width:8vmin;height:8vmin;min-width:34px;min-height:34px}
 .rok{flex:none;width:5vmin;height:5vmin;min-width:24px;min-height:24px}.rok svg{width:100%;height:100%}
@@ -94,7 +93,7 @@ button{font:inherit;border:0;cursor:pointer}
 <feComposite in="dark" in2="d" operator="in" result="d2"/>
 <feMerge><feMergeNode in="d"/><feMergeNode in="glow2"/><feMergeNode in="l2"/><feMergeNode in="d2"/></feMerge>
 </filter>
-<filter id="crayonD" filterUnits="userSpaceOnUse" x="-30" y="-15" width="520" height="330">
+<filter id="crayonD" filterUnits="userSpaceOnUse" x="-30" y="-15" width="740" height="330">
 <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="5" result="w"/>
 <feDisplacementMap in="SourceGraphic" in2="w" scale="1.1" xChannelSelector="R" yChannelSelector="G" result="d"/>
 <feGaussianBlur in="d" stdDeviation="9" result="b"/>
@@ -217,7 +216,8 @@ function digitSVG(d){
   const pts=NUMBERS[d].map(s=>s.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" "));
   const L=(w,c,extra)=>pts.map(p=>`<polyline points="${p}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra||""}/>`).join("");
   const c=COLORS[ci(d)],p=PASTEL[ci(d)];
-  return `<svg viewBox="-20 0 ${unitW(d)+40} 300"><g filter="url(#crayonD)">${L(47,c)}${L(44,p)}${L(2.6,c,'stroke-dasharray="9 9" opacity=".7"')}</g></svg>`;
+  const vw=Math.max(unitW(d)+40,240),vh=vw*1.25,vx=-20-(vw-unitW(d)-40)/2,vy=(300-vh)/2;
+  return `<svg viewBox="${vx} ${vy} ${vw} ${vh}"><g filter="url(#crayonD)">${L(47,c)}${L(44,p)}${L(2.6,c,'stroke-dasharray="9 9" opacity=".7"')}</g></svg>`;
 }
 
 /* ---------- illustrations (soft crayon, cute faces) ---------- */
@@ -456,8 +456,14 @@ function show(id){clearTimers();try{speechSynthesis.cancel();}catch(e){}stopRec(
   if(id==="home")renderHome();
 }
 function rangeSVG(p){
-  const nums=pageNums(p),c=COLORS[p%10],pa=PASTEL[p%10],dots=nums.map((n,i)=>`<circle cx="${100+(i-(nums.length-1)/2)*15.5}" cy="120" r="5.4" fill="${stars[n]>0?c:"#e6dccd"}"/>`).join("");
-  return `<svg viewBox="0 0 200 150"><rect x="6" y="6" width="188" height="138" rx="26" fill="${pa}" opacity=".55"/><text x="100" y="82" text-anchor="middle" font-family="'Arial Rounded MT Bold',Arial,sans-serif" font-weight="bold" font-size="${p<9?54:46}" fill="${c}" stroke="#fffaf1" stroke-width="5" paint-order="stroke">${rangeLabel(p)}</text>${dots}</svg>`;
+  const nums=pageNums(p),a=nums[0]===0?0:nums[0],z=nums[nums.length-1],c=COLORS[p%10],pa=PASTEL[p%10];
+  const line=(n,y)=>{
+    const w=unitW(n),k=Math.min(200/w,.37),pts=NUMBERS[n].map(st=>st.map(q=>q[0].toFixed(1)+","+q[1].toFixed(1)).join(" "));
+    const L=(sw,col,ex)=>pts.map(t=>`<polyline points="${t}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" ${ex||""}/>`).join("");
+    return `<g transform="translate(${(240-w*k)/2} ${y}) scale(${k})">${L(47,c)}${L(44,pa)}${L(2.6,c,'stroke-dasharray="9 9" opacity=".7"')}</g>`;
+  };
+  const dots=nums.map((n,i)=>`<circle cx="${120+(i-(nums.length-1)/2)*15}" cy="290" r="4.5" fill="${stars[n]>0?c:"#e6dccd"}"/>`).join("");
+  return `<svg viewBox="0 0 240 300"><g filter="url(#crayonD)">${line(a,14)}<line x1="100" y1="145" x2="140" y2="145" stroke="${c}" stroke-width="9" stroke-linecap="round" opacity=".8"/>${line(z,163)}</g>${dots}</svg>`;
 }
 function renderHome(){
   $("grid").innerHTML="";
@@ -484,10 +490,14 @@ function fitHome(){
   const h=$("home"),g=$("grid");if(!h.classList.contains("on"))return;
   g.style.width="";
   const bt=$("homeBtns"),H=window.innerHeight,room=H*.82-bt.offsetHeight;
+  /* size every screen as if it had 11 tiles (3 rows), so the cards stay the same size everywhere */
+  let ghost=null;
+  if(g.children.length<11){ghost=g.lastElementChild.cloneNode(true);ghost.style.visibility="hidden";g.appendChild(ghost);}
   for(let i=0;i<6;i++){
     if(g.offsetHeight<=room)break;
     g.style.width=Math.floor(g.offsetWidth*room/g.offsetHeight*.98)+"px";
   }
+  if(ghost)g.removeChild(ghost);
 }
 window.addEventListener("resize",fitHome);
 /* ---------- crayon texture helpers for the canvas ---------- */
