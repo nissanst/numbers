@@ -334,13 +334,16 @@ function sayName(n,cb){
   stopRec();
   const done=()=>{if(cb&&tok===sayTok)cb();};
   const r=recs[n]||siteRecs[n];
+  if(!r&&sitePend[n]){sitePend[n].then(()=>{if(tok===sayTok){sayTok--;sayName(n,cb);}});return;}
   if(r&&ensureAC()){const s=AC.createBufferSource();s.buffer=r.buf;s.connect(AC.destination);s.onended=done;s.start(0,r.s,r.d);curSrc=s;}
   else say(PHRASE[n]||nameOf(n),done);
 }
-async function loadSiteVoices(){
-  for(const k of VOICE_KEYS){
-    try{const r=await fetch("lite/audio/"+k+".wav");if(!r.ok)continue;siteRecs[k]=await decodeRec(new Blob([await r.arrayBuffer()],{type:"audio/wav"}));}catch(e){}
-  }
+const sitePend={};
+function loadSiteVoices(){
+  for(const k of VOICE_KEYS)sitePend[k]=(async()=>{
+    try{const r=await fetch("lite/audio/"+k+".wav");if(!r.ok)return;siteRecs[k]=await decodeRec(new Blob([await r.arrayBuffer()],{type:"audio/wav"}));}catch(e){}
+    delete sitePend[k];
+  })();
 }
 function dotSVG(d,i){
   const c=ci(d),row=Math.floor(i/10)%2,fill=row?mixHex(PASTEL[c],COLORS[c],.45):PASTEL[c];
