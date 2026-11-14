@@ -324,7 +324,7 @@ async function decodeRec(blob){
   const s=Math.max(0,a/sr-0.15),e=Math.min(buf.duration,b/sr+0.4);
   return {buf,s,d:Math.max(0.15,e-s)};
 }
-async function loadRecs(){try{for(const [k,blob] of await dbAll()){try{recs[k]=await decodeRec(blob);}catch(e){}}}catch(e){}}
+async function loadRecs(){try{for(const [k,blob] of await dbAll()){try{const r=await decodeRec(blob);if(r.buf.duration>0.3&&r.d>0.3)recs[k]=r;}catch(e){}}}catch(e){}}
 function stopRec(){if(curSrc){curSrc.onended=null;try{curSrc.stop();}catch(e){}curSrc=null;}}
 let sayTok=0;
 const PHRASE={praise:"כל הכבוד, הצלחת!",prompt:"תבחרי מתוך המספרים את הספרה",draw:"עכשיו נצייר עם האצבע את הספרה",oops:"אופס, בחרת בטעות את הספרה",retry:"בואי ננסה שוב ללחוץ על"};
