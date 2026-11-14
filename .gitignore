@@ -5,3 +5,4 @@ node_modules/
 *.wav
 *.zip
 CLAUDE.md
+!lite/audio/*.m4a

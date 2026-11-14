@@ -280,7 +280,7 @@ const later=(fn,ms)=>{const t=setTimeout(fn,ms);timers.push(t);};
 const clearTimers=()=>{timers.forEach(clearTimeout);timers=[];};
 
 /* ---------- parent recordings (stored on this device) ---------- */
-let recs={},curSrc=null,rec=null;
+let recs={},siteRecs={},curSrc=null,rec=null;
 function ensureAC(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();}catch(e){}return AC;}
 document.addEventListener("pointerdown",ensureAC,true);
 const dbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open("numrec",1);r.onupgradeneeded=()=>r.result.createObjectStore("r");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
@@ -304,9 +304,14 @@ function sayName(n,cb){
   try{speechSynthesis.cancel();}catch(e){}
   stopRec();
   const done=()=>{if(cb&&tok===sayTok)cb();};
-  const r=recs[n];
+  const r=recs[n]||siteRecs[n];
   if(r&&ensureAC()){const s=AC.createBufferSource();s.buffer=r.buf;s.connect(AC.destination);s.onended=done;s.start(0,r.s,r.d);curSrc=s;}
   else say(PHRASE[n]||NAMES[n],done);
+}
+async function loadSiteVoices(){
+  for(const k of [0,1,2,3,4,5,6,7,8,9,"draw","praise","prompt","oops","retry"]){
+    try{const r=await fetch("lite/audio/"+k+".m4a");if(!r.ok)continue;siteRecs[k]=await decodeRec(new Blob([await r.arrayBuffer()],{type:"audio/mp4"}));}catch(e){}
+  }
 }
 async function saveRec(d,blob){await dbPut(d,blob);recs[d]=await decodeRec(blob);}
 async function toggleRec(d){
@@ -659,7 +664,7 @@ gearEl.addEventListener("mousedown",gearDown);gearEl.addEventListener("touchstar
 if(/[?&]rec\b/.test(location.search))show("rec");
 $("next").onclick=()=>startPlay((cur+1)%10);
 addDeco($("home"));addDeco($("card"));addDeco($("find"));
-loadRecs();
+loadRecs();loadSiteVoices();
 renderHome();
 </script>
 </body>
