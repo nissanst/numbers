@@ -483,11 +483,10 @@ function renderHome(){
 function fitHome(){
   const h=$("home"),g=$("grid");if(!h.classList.contains("on"))return;
   g.style.width="";
-  const bt=$("homeBtns"),avail=window.innerHeight*.86;
-  for(let i=0;i<3;i++){
-    const tot=g.offsetHeight+bt.offsetHeight+window.innerHeight*.04;
-    if(tot<=avail)break;
-    g.style.width=Math.floor(g.offsetWidth*avail/tot*.98)+"px";
+  const bt=$("homeBtns"),H=window.innerHeight,room=H*.82-bt.offsetHeight;
+  for(let i=0;i<6;i++){
+    if(g.offsetHeight<=room)break;
+    g.style.width=Math.floor(g.offsetWidth*room/g.offsetHeight*.98)+"px";
   }
 }
 window.addEventListener("resize",fitHome);
