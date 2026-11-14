@@ -354,6 +354,7 @@ function rangeSVG(p) {
 function renderHome() {
   var g = $("grid"); g.innerHTML = "";
   var pb = $("pageBtn");
+  $("gear").style.display = homeMode === "ranges" ? "" : "none";
   if (homeMode === "ranges") {
     pb.style.display = "none";
     for (var p = 0; p < 10; p++) (function (p) {
