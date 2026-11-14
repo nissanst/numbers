@@ -66,7 +66,8 @@ var COLS = [1, 1, 2, 2, 2, 3, 3, 3, 3, 3];
 function digitSVG(d) {
   var pts = NUMBERS[d].map(function (s) { return s.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" "); });
   function L(w, c, extra) { return pts.map(function (p) { return '<polyline points="' + p + '" fill="none" stroke="' + c + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round" ' + (extra || "") + "/>"; }).join(""); }
-  return '<svg viewBox="-20 0 ' + (unitW(d) + 40) + ' 300">' + L(47, COLORS[ci(d)]) + L(44, PASTEL[ci(d)]) + L(2.6, COLORS[ci(d)], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
+  var vw = Math.max(unitW(d) + 40, 240), vh = vw * 1.25, vx = -20 - (vw - unitW(d) - 40) / 2, vy = (300 - vh) / 2;
+  return '<svg viewBox="' + vx + " " + vy + " " + vw + " " + vh + '">' + L(47, COLORS[ci(d)]) + L(44, PASTEL[ci(d)]) + L(2.6, COLORS[ci(d)], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
 }
 function FACE(x, y, k) {
   return '<circle cx="' + (x - 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/><circle cx="' + (x + 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/>' +
@@ -302,18 +303,18 @@ function layout() {
   dirty = true;
 }
 function layoutHome() {
-  var portrait = H > W, per = portrait ? 4 : 5, rows = Math.ceil((homeMode === "ranges" ? 10 : pageNums(homePageIdx).length) / per), mg = U * 1.3, ratio = homeMode === "ranges" ? 0.75 : (homePageIdx === 0 ? 0.9 : 0.64);
+  var portrait = H > W, per = portrait ? 4 : 5, rows = homeMode === "ranges" ? Math.ceil(10 / per) : Math.ceil(11 / per), mg = U * 1.3, ratio = homeMode === "ranges" ? 0.773 : 1.25;
   var btnH = Math.max(46, U * 12), fs = Math.max(18, U * 4.6);
-  var gw = Math.min(W * 0.94, H * 1.25);
+  var gw = homeMode === "ranges" ? W * 0.9 : Math.min(W * 0.9, H * 1.25);
   var tw = Math.floor(gw / per - 2 * mg);
-  var maxTw = (H - btnH - 5 * U - 40) / (rows * ratio) - 2 * mg;
+  var maxTw = ((H * 0.92 - btnH - 3 * U) / rows - 24 - 2 * mg) / ratio;
   tw = Math.floor(Math.min(tw, maxTw));
   var tiles = document.querySelectorAll("#grid .tile");
   for (var i = 0; i < tiles.length; i++) { tiles[i].style.width = tw + "px"; tiles[i].style.margin = mg + "px"; }
   var gridW = per * (tw + 2 * mg);
   var grid = $("grid"); grid.style.width = gridW + "px";
   var btn = $("findBtn"); btn.style.fontSize = fs + "px"; btn.style.height = btnH + "px"; btn.style.lineHeight = (btnH - 8) + "px";
-  var total = rows * (tw * ratio + 2 * mg + 22) + btnH + 3 * U;
+  var total = rows * (tw * ratio + 2 * mg + 24) + btnH + 3 * U;
   $("homeIn").style.paddingTop = Math.max(8, (H - total) / 2) + "px";
 }
 var cv = $("cv"), ctx = cv.getContext("2d"), fx = $("fx"), fctx = fx.getContext("2d");
@@ -347,9 +348,17 @@ window.addEventListener("orientationchange", function () { setTimeout(layout, 25
 
 /* ---------- home ---------- */
 function rangeSVG(p) {
-  var nums = pageNums(p), c = COLORS[p % 10], pa = PASTEL[p % 10], dots = "";
-  for (var i = 0; i < nums.length; i++) dots += '<circle cx="' + (100 + (i - (nums.length - 1) / 2) * 15.5) + '" cy="120" r="5.4" fill="' + (stars[nums[i]] > 0 ? c : "#e6dccd") + '"/>';
-  return '<svg viewBox="0 0 200 150"><rect x="6" y="6" width="188" height="138" rx="26" fill="' + pa + '" opacity=".55"/><text x="100" y="82" text-anchor="middle" font-family="Arial Rounded MT Bold,Arial,sans-serif" font-weight="bold" font-size="' + (p < 9 ? 54 : 46) + '" fill="none" stroke="#fffaf1" stroke-width="6" stroke-linejoin="round">' + rangeLabel(p) + '</text><text x="100" y="82" text-anchor="middle" font-family="Arial Rounded MT Bold,Arial,sans-serif" font-weight="bold" font-size="' + (p < 9 ? 54 : 46) + '" fill="' + c + '">' + rangeLabel(p) + "</text>" + dots + "</svg>";
+  var nums = pageNums(p), a = nums[0], z = nums[nums.length - 1], c = COLORS[p % 10], pa = PASTEL[p % 10], DG = 130;
+  var wa = unitW(a), wz = unitW(z), tot = wa + DG + wz, k = Math.min(272 / tot, 0.4), x0 = (300 - tot * k) / 2, y0 = (222 - 300 * k) / 2;
+  function draw(n, x) {
+    var pts = NUMBERS[n].map(function (st) { return st.map(function (q) { return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" "); });
+    function L(sw, col, ex) { return pts.map(function (t) { return '<polyline points="' + t + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round" ' + (ex || "") + "/>"; }).join(""); }
+    return '<g transform="translate(' + x + " " + y0 + ") scale(" + k + ')">' + L(47, c) + L(44, pa) + L(2.6, c, 'stroke-dasharray="9 9" opacity=".7"') + "</g>";
+  }
+  var dots = "";
+  for (var i = 0; i < nums.length; i++) dots += '<circle cx="' + (150 + (i - (nums.length - 1) / 2) * 15) + '" cy="214" r="4.5" fill="' + (stars[nums[i]] > 0 ? c : "#e6dccd") + '"/>';
+  var mx = x0 + (wa + DG / 2) * k;
+  return '<svg viewBox="0 0 300 232">' + draw(a, x0) + '<line x1="' + (mx - 9) + '" y1="' + (y0 + 150 * k) + '" x2="' + (mx + 9) + '" y2="' + (y0 + 150 * k) + '" stroke="' + c + '" stroke-width="7" stroke-linecap="round" opacity=".85"/>' + draw(z, x0 + (wa + DG) * k) + dots + "</svg>";
 }
 function renderHome() {
   var g = $("grid"); g.innerHTML = "";
@@ -359,13 +368,13 @@ function renderHome() {
     pb.style.display = "none";
     for (var p = 0; p < 10; p++) (function (p) {
       var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[p % 10];
-      t.innerHTML = '<div class="ti" style="padding-bottom:75%">' + rangeSVG(p) + "</div>";
+      t.innerHTML = '<div class="ti" style="padding-bottom:77.3%">' + rangeSVG(p) + "</div>";
       tap(t, function () { homeMode = "numbers"; homePageIdx = p; renderHome(); });
       g.appendChild(t);
     })(p);
   } else {
     pb.style.display = "inline-block"; pb.innerHTML = iconSVG("next"); pb.className = "round back";
-    var pad = homePageIdx === 0 ? "90%" : "64%";
+    var pad = "125%";
     pageNums(homePageIdx).forEach(function (d) {
       var t = document.createElement("div"); t.className = "tile"; t.style.borderColor = COLORS[ci(d)];
       var st = ""; for (var k = 0; k < Math.min(stars[d], 3); k++) st += iconSVG("star");
