@@ -110,7 +110,10 @@ button{font:inherit;border:0;cursor:pointer}
 <div id="rec" class="screen">
   <div class="rhead">
     <button class="round" id="homeR" aria-label="home">🏠</button>
-    <div id="rmsg">הקלטת קולות להורים: לחצו על המיקרופון, אמרו את שם הספרה וסיימו בלחיצה נוספת. ההקלטות נשמרות במכשיר הזה בלבד.</div>
+    <div id="rmsg" style="flex:1">הקלטת קולות להורים: לחצו על המיקרופון, אמרו את שם הספרה וסיימו בלחיצה נוספת. ההקלטות נשמרות במכשיר הזה בלבד.</div>
+    <button class="rb" id="expR" aria-label="export" style="margin:0"></button>
+    <button class="rb" id="impR" aria-label="import" style="margin:0"></button>
+    <input type="file" id="impIn" multiple accept=".zip,.m4a,.mp3,.wav,.webm,audio/*" style="display:none">
   </div>
   <div class="rgrid" id="rgrid"></div>
 </div>
@@ -213,7 +216,7 @@ function objSVG(d){
 }
 
 /* ---------- icons in the same soft style ---------- */
-const ICOCOL={home:["#ffd3a8","#eb9a5c"],say:["#bfe3f5","#6fb3d8"],next:["#bfe8d4","#6fbf9e"],find:["#e6f6ff","#6fb3d8"],gear:["#ece4d8","#b3a592"],mic:["#f9b8c6","#e07c97"],play:["#bfe8d4","#6fbf9e"],trash:["#ece4d8","#b3a592"],stop:["#ffc4b0","#e5806a"],check:["#bfe8d4","#6fbf9e"],star:["#ffe9a0","#e8b84a"],redo:["#f9b8c6","#e07c97"]};
+const ICOCOL={home:["#ffd3a8","#eb9a5c"],say:["#bfe3f5","#6fb3d8"],next:["#bfe8d4","#6fbf9e"],find:["#e6f6ff","#6fb3d8"],gear:["#ece4d8","#b3a592"],mic:["#f9b8c6","#e07c97"],play:["#bfe8d4","#6fbf9e"],trash:["#ece4d8","#b3a592"],stop:["#ffc4b0","#e5806a"],check:["#bfe8d4","#6fbf9e"],star:["#ffe9a0","#e8b84a"],redo:["#f9b8c6","#e07c97"],export:["#bfe3f5","#6fb3d8"],import:["#bfe8d4","#6fbf9e"]};
 function iconSVG(n){
   const [P,O]=ICOCOL[n],st=`fill="${P}" stroke="${O}" stroke-width="3.8" stroke-linejoin="round" stroke-linecap="round"`;
   const line=`fill="none" stroke="${O}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"`;
@@ -230,6 +233,8 @@ function iconSVG(n){
   case "stop": s=`<rect x="22" y="22" width="56" height="56" rx="14" ${st}/>${HI(36,36,3,8,0)}`;break;
   case "check": s=`<circle cx="50" cy="50" r="38" ${st}/><path d="M30 52L45 66L72 36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`;break;
   case "redo": s=`<circle cx="50" cy="50" r="40" ${st}/><path d="M68 38A22 22 0 1 0 72 54" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M70 22V40H52" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`;break;
+  case "export": s=`<path d="M20 62V84H80V62" ${line}/><path d="M50 68V16M32 34L50 16L68 34" ${line}/>`;break;
+  case "import": s=`<path d="M20 62V84H80V62" ${line}/><path d="M50 14V64M32 46L50 64L68 46" ${line}/>`;break;
   case "star": s=`<path d="M50 10L61 38L91 38L67 56L76 86L50 68L24 86L33 56L9 38L39 38Z" ${st}/>`;break;
   }
   return `<svg viewBox="0 0 100 100"><g filter="url(#crayon)">${s}</g></svg>`;
@@ -324,6 +329,62 @@ async function toggleRec(d){
     mr.start();rec.warm=false;$("rmsg").textContent="דברו עכשיו, ולחצו שוב לסיום";
     setTimeout(()=>{if(rec&&rec.mr===mr&&mr.state==="recording")mr.stop();},12000);
   }catch(e){$("rmsg").textContent="אין גישה למיקרופון ("+(e.name||e)+"). צריך לאשר גישה למיקרופון בדפדפן.";}
+}
+const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+const crc32=u8=>{let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=crcT[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+function makeZip(files){
+  const enc=new TextEncoder(),chunks=[],central=[];let offset=0;
+  for(const f of files){
+    const nm=enc.encode(f.name),crc=crc32(f.data),n=f.data.length,lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(12,0x21,true);lh.setUint32(14,crc,true);lh.setUint32(18,n,true);lh.setUint32(22,n,true);lh.setUint16(26,nm.length,true);
+    chunks.push(new Uint8Array(lh.buffer),nm,f.data);
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(14,0x21,true);ch.setUint32(16,crc,true);ch.setUint32(20,n,true);ch.setUint32(24,n,true);ch.setUint16(28,nm.length,true);ch.setUint32(42,offset,true);
+    central.push(new Uint8Array(ch.buffer),nm);offset+=30+nm.length+n;
+  }
+  const cdSize=central.reduce((a,c)=>a+c.length,0),end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,cdSize,true);end.setUint32(16,offset,true);
+  return new Blob(chunks.concat(central,[new Uint8Array(end.buffer)]),{type:"application/zip"});
+}
+function readZip(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf),out=[];let p=0;
+  while(p+30<=buf.byteLength&&dv.getUint32(p,true)===0x04034b50){
+    const method=dv.getUint16(p+8,true),csize=dv.getUint32(p+18,true),nlen=dv.getUint16(p+26,true),elen=dv.getUint16(p+28,true);
+    if(method!==0)throw new Error("zip-method");
+    const name=new TextDecoder().decode(u8.subarray(p+30,p+30+nlen)),start=p+30+nlen+elen;
+    out.push({name,data:u8.slice(start,start+csize)});p=start+csize;
+  }
+  return out;
+}
+const extFor=t=>/mp4|m4a|aac/.test(t)?"m4a":/webm/.test(t)?"webm":/mpeg|mp3/.test(t)?"mp3":/wav/.test(t)?"wav":"bin";
+const mimeFor=n=>/\.webm$/i.test(n)?"audio/webm":/\.mp3$/i.test(n)?"audio/mpeg":/\.wav$/i.test(n)?"audio/wav":"audio/mp4";
+const REC_KEYS=["draw","praise","prompt","oops","retry"];
+async function exportRecs(){
+  try{
+    const all=await dbAll();
+    if(!all.length){$("rmsg").textContent="אין הקלטות לייצוא.";return;}
+    const files=[];
+    for(const [k,blob] of all)files.push({name:k+"."+extFor(blob.type),data:new Uint8Array(await blob.arrayBuffer())});
+    const a=document.createElement("a");a.href=URL.createObjectURL(makeZip(files));a.download="voices.zip";document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},5000);
+    $("rmsg").textContent="יוצאו "+files.length+" הקלטות לקובץ voices.zip.";
+  }catch(e){$("rmsg").textContent="הייצוא נכשל ("+(e.name||e)+")";}
+}
+async function importFiles(list){
+  let n=0,bad=0;const items=[];
+  for(const f of list){
+    if(/\.zip$/i.test(f.name)){
+      try{for(const e of readZip(await f.arrayBuffer()))items.push({name:e.name,blob:new Blob([e.data],{type:mimeFor(e.name)})});}catch(e){bad++;}
+    }else items.push({name:f.name,blob:new Blob([await f.arrayBuffer()],{type:f.type||mimeFor(f.name)})});
+  }
+  for(const it of items){
+    const base=it.name.replace(/^.*\//,"").replace(/\.[^.]+$/,"");
+    const isDigit=/^\d$/.test(base);
+    if(!isDigit&&!REC_KEYS.includes(base)){bad++;continue;}
+    try{await saveRec(isDigit?Number(base):base,it.blob);n++;}catch(e){bad++;}
+  }
+  $("rmsg").textContent="יובאו "+n+" הקלטות"+(bad?" ("+bad+" דולגו)":"")+".";
+  renderRec();
 }
 function renderRec(){
   const g=$("rgrid");g.innerHTML="";
@@ -579,7 +640,9 @@ $("sayP").onclick=()=>sayName(cur);
 $("sayF").onclick=()=>sayName("prompt",()=>sayName(target));
 $("homeR").onclick=()=>show("home");
 $("redo").onclick=()=>startPlay(cur);
-[["homeP","home"],["homeF","home"],["homeR","home"],["sayP","say"],["redo","redo"],["sayF","say"],["next","next"],["gear","gear"]].forEach(([id,n])=>{$(id).innerHTML=iconSVG(n);});
+$("expR").onclick=exportRecs;$("impR").onclick=()=>$("impIn").click();
+$("impIn").onchange=e=>{const fl=Array.from(e.target.files);importFiles(fl).then(()=>{e.target.value="";});};
+[["homeP","home"],["homeF","home"],["homeR","home"],["sayP","say"],["redo","redo"],["sayF","say"],["next","next"],["gear","gear"],["expR","export"],["impR","import"]].forEach(([id,n])=>{$(id).innerHTML=iconSVG(n);});
 $("findBtn").innerHTML=iconSVG("play")+"<span>שנשחק?</span>";
 let gearT=null;
 const gearEl=$("gear");
