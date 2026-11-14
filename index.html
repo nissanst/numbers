@@ -365,7 +365,12 @@ async function exportRecs(){
     if(!all.length){$("rmsg").textContent="אין הקלטות לייצוא.";return;}
     const files=[];
     for(const [k,blob] of all)files.push({name:k+"."+extFor(blob.type),data:new Uint8Array(await blob.arrayBuffer())});
-    const a=document.createElement("a");a.href=URL.createObjectURL(makeZip(files));a.download="voices.zip";document.body.appendChild(a);a.click();
+    const zip=makeZip(files),file=new File([zip],"voices.zip",{type:"application/zip"});
+    if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:"voices"});$("rmsg").textContent="תפריט השיתוף נפתח ("+files.length+" הקלטות).";return;}
+      catch(e){if(e&&e.name==="AbortError")return;}
+    }
+    const a=document.createElement("a");a.href=URL.createObjectURL(zip);a.download="voices.zip";document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},5000);
     $("rmsg").textContent="יוצאו "+files.length+" הקלטות לקובץ voices.zip.";
   }catch(e){$("rmsg").textContent="הייצוא נכשל ("+(e.name||e)+")";}
