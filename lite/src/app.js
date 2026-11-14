@@ -138,15 +138,50 @@ function speak(text, cb) {
     window.speechSynthesis.speak(u);
   } catch (e) { if (cb) setTimeout(cb, 400); }
 }
-function stopVoice() { try { voiceEl.onended = null; voiceEl.onerror = null; voiceEl.pause(); } catch (e) {} try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {} }
+var vcache = {}, vwait = {}, curBufSrc = null, voiceTimer = null;
+function b64ToBuf(uri) { var i = uri.indexOf(","), bin = atob(uri.slice(i + 1)), len = bin.length, u8 = new Uint8Array(len); for (var k = 0; k < len; k++) u8[k] = bin.charCodeAt(k); return u8.buffer; }
+function getBuffer(n, cb) {
+  if (vcache[n]) { cb(vcache[n]); return; }
+  if (vwait[n]) { vwait[n].push(cb); return; }
+  vwait[n] = [cb];
+  function finish(buf) { if (buf) vcache[n] = buf; var w = vwait[n]; vwait[n] = null; for (var i = 0; i < w.length; i++) w[i](buf || null); }
+  var ac = ensureAC(); if (!ac) { lastAudioErr = "no WebAudio"; finish(null); return; }
+  function decode(ab) {
+    try { ac.decodeAudioData(ab, function (b) { finish(b); }, function () { lastAudioErr = "decode " + n; finish(null); }); }
+    catch (e) { lastAudioErr = "decode-ex " + n; finish(null); }
+  }
+  var stored = voiceGet(n);
+  if (stored) { try { decode(b64ToBuf(stored)); } catch (e) { lastAudioErr = "stored " + n; finish(null); } return; }
+  var x = new XMLHttpRequest(); x.open("GET", "audio/" + n + ".wav", true); x.responseType = "arraybuffer";
+  x.onload = function () { if (x.status === 200 || x.status === 0) decode(x.response); else { lastAudioErr = "http " + x.status + " " + n; finish(null); } };
+  x.onerror = function () { lastAudioErr = "xhr " + n; finish(null); };
+  x.send();
+}
+function stopVoice() {
+  clearTimeout(voiceTimer);
+  if (curBufSrc) { try { if (curBufSrc.stop) curBufSrc.stop(0); else curBufSrc.noteOff(0); } catch (e) {} curBufSrc = null; }
+  try { voiceEl.onended = null; voiceEl.onerror = null; voiceEl.pause(); } catch (e) {}
+  try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+}
 function sayName(n, cb) {
   var my = ++sayTok, fin = false;
   stopVoice();
   function done() { if (fin) return; fin = true; if (cb && my === sayTok) cb(); }
-  function fallback() { if (my !== sayTok) return; try { lastAudioErr = (voiceEl.error ? "code " + voiceEl.error.code : "play") + " (" + n + ")"; } catch (e) {} speak(PHRASE[n] || NAMES[n], done); }
-  voiceEl.onended = done;
-  voiceEl.onerror = fallback;
-  try { voiceEl.src = voiceUrl(n); try { voiceEl.load(); } catch (e2) {} var p = voiceEl.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+  function viaTTS() { if (my !== sayTok) return; speak(PHRASE[n] || NAMES[n], done); }
+  function viaElement() {
+    voiceEl.onended = done;
+    voiceEl.onerror = function () { if (my !== sayTok) return; try { lastAudioErr = (voiceEl.error ? "media code " + voiceEl.error.code : "play") + " (" + n + ")"; } catch (e) {} viaTTS(); };
+    try { voiceEl.src = voiceUrl(n); try { voiceEl.load(); } catch (e2) {} var p = voiceEl.play(); if (p && p.catch) p.catch(function () { viaTTS(); }); } catch (e) { viaTTS(); }
+  }
+  getBuffer(n, function (buf) {
+    if (my !== sayTok) return;
+    if (!buf) { viaElement(); return; }
+    try {
+      var ac = ensureAC(), s = ac.createBufferSource();
+      s.buffer = buf; s.connect(ac.destination); if (s.start) s.start(0); else s.noteOn(0);
+      curBufSrc = s; clearTimeout(voiceTimer); voiceTimer = setTimeout(done, buf.duration * 1000 + 80);
+    } catch (e) { lastAudioErr = "play-ex " + n; viaElement(); }
+  });
 }
 var unlocked = false, SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=";
 function unlockAudio() {
@@ -507,7 +542,7 @@ function renderRec() {
     row.innerHTML = '<div class="rlw">' + label + "</div>" + (have ? '<div class="rok">' + iconSVG("check") + "</div>" : "");
     if (have) {
       var pl = document.createElement("div"); pl.className = "rb2"; pl.innerHTML = iconSVG("play"); tap(pl, function () { sayName(k); }); row.appendChild(pl);
-      var de = document.createElement("div"); de.className = "rb2"; de.innerHTML = iconSVG("trash"); tap(de, function () { try { localStorage.removeItem("voice_" + k); } catch (e) {} renderRec(); layout(); }); row.appendChild(de);
+      var de = document.createElement("div"); de.className = "rb2"; de.innerHTML = iconSVG("trash"); tap(de, function () { try { localStorage.removeItem("voice_" + k); } catch (e) {} vcache = {}; renderRec(); layout(); }); row.appendChild(de);
     }
     list.appendChild(row);
   });
@@ -532,7 +567,7 @@ tap($("impR"), function () { $("impIn").click(); });
 $("impIn").onchange = function () {
   var fl = []; for (var i = 0; i < this.files.length; i++) fl.push(this.files[i]);
   var inp = this;
-  importFiles(fl, function (n, bad) { recMsg("יובאו " + n + " הקלטות" + (bad ? " (" + bad + " דולגו)" : "") + "."); renderRec(); inp.value = ""; });
+  importFiles(fl, function (n, bad) { recMsg("יובאו " + n + " הקלטות" + (bad ? " (" + bad + " דולגו)" : "") + "."); vcache = {}; renderRec(); inp.value = ""; });
 };
 recMsg("הקלטה וייצוא לא זמינים במכשיר הזה. אפשר לייבא קובץ voices.zip שיוצא ממכשיר אחר.");
 (function () {
@@ -544,6 +579,7 @@ recMsg("הקלטה וייצוא לא זמינים במכשיר הזה. אפשר 
   if (/[?&]rec\b/.test(location.search)) setTimeout(function () { show("rec"); }, 0);
 })();
 addDeco($("home")); addDeco($("card")); addDeco($("find"));
+setTimeout(function () { var i = 0; (function next() { if (i >= VKEYS.length) return; getBuffer(VKEYS[i++], function () { setTimeout(next, 60); }); })(); }, 1200);
 show("home");
 frame();
 })();
