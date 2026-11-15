@@ -183,8 +183,29 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     }).join("");
   }
 
-  /* ---------- digit geometry (unit box 200 x 300) ---------- */
-  var RAW = [[arc(100, 150, 68, 118, -90, -450)], [[[60, 95], [108, 40], [108, 265]]], [join(arc(100, 95, 58, 58, 195, 395), [[40, 268], [168, 268]])], [join(arc(100, 88, 50, 50, 205, 450), arc(100, 198, 62, 62, 270, 520))], [[[130, 30], [32, 188], [172, 188]], [[130, 70], [130, 268]]], [[[158, 38], [62, 38], [52, 135]], arc(98, 198, 66, 66, 235, 505)], [join(bez([145, 32], [75, 50], [38, 120], [38, 200]), arc(100, 200, 62, 62, 180, -180))], [[[42, 40], [162, 40], [82, 268]]], [join(arc(100, 88, 46, 50, 90, 450), arc(100, 198, 60, 62, 270, 630))], [join(arc(100, 95, 60, 62, 0, -360), bez([160, 95], [160, 170], [132, 240], [62, 268]))]];
+  /* ---------- digit geometry (unit box 200 x 250) ---------- */
+  var GEO = [[[["M", 103, 54], ["C", 68, 51, 46, 86, 46, 125], ["C", 45, 169, 64, 202, 101, 202], ["C", 137, 203, 155, 168, 155, 124], ["C", 156, 82, 136, 53, 103, 54]]], [[["M", 61, 88], ["L", 113, 56], ["L", 113, 198]], [["M", 75, 198], ["L", 148, 198]]], [[["M", 54, 83], ["C", 76, 40, 148, 49, 143, 96], ["C", 141, 130, 71, 167, 55, 198], ["L", 150, 198]]], [[["M", 54, 65], ["C", 96, 39, 155, 59, 143, 95], ["C", 137, 117, 113, 126, 83, 126], ["C", 117, 122, 148, 143, 144, 172], ["C", 139, 205, 87, 216, 52, 191]]], [[["M", 133, 54], ["L", 54, 144], ["L", 158, 144]], [["M", 133, 54], ["L", 133, 202]]], [[["M", 65, 55], ["L", 65, 120], ["C", 101, 105, 149, 125, 142, 169], ["C", 135, 206, 82, 215, 50, 191]], [["M", 65, 55], ["L", 148, 55]]], [[["M", 137, 55], ["C", 88, 50, 55, 96, 53, 146], ["C", 45, 201, 78, 215, 113, 199], ["C", 152, 181, 147, 140, 116, 132], ["C", 88, 124, 58, 139, 53, 146]]], [[["M", 52, 55], ["L", 151, 55], ["L", 82, 202]]], [[["M", 101, 53], ["C", 51, 51, 51, 103, 101, 126], ["C", 160, 153, 158, 204, 101, 204], ["C", 43, 204, 44, 151, 101, 126], ["C", 152, 104, 151, 54, 101, 53]]], [[["M", 145, 98], ["C", 147, 54, 102, 47, 73, 61], ["C", 36, 79, 48, 131, 84, 141], ["C", 119, 152, 146, 127, 145, 98], ["C", 154, 151, 139, 204, 74, 202]]]];
+  var RAW = GEO.map(function (strokes) {
+    return strokes.map(function (cmds) {
+      var out = [],
+        cx = 0,
+        cy = 0;
+      cmds.forEach(function (c) {
+        if (c[0] === "M" || c[0] === "L") {
+          cx = c[1];
+          cy = c[2];
+          out.push([cx, cy]);
+        } else if (c[0] === "C") {
+          bez([cx, cy], [c[1], c[2]], [c[3], c[4]], [c[5], c[6]]).slice(1).forEach(function (q) {
+            out.push(q);
+          });
+          cx = c[5];
+          cy = c[6];
+        }
+      });
+      return out;
+    });
+  });
   var DIGITS = RAW.map(function (strokes) {
     return strokes.map(function (s) {
       return resample(s, 5);
@@ -192,13 +213,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
   });
   var NAMES = ["אפס", "אחת", "שתיים", "שלוש", "ארבע", "חמש", "שש", "שבע", "שמונה", "תשע", "עשר", "אחת עשרה", "שתים עשרה", "שלוש עשרה", "ארבע עשרה", "חמש עשרה", "שש עשרה", "שבע עשרה", "שמונה עשרה", "תשע עשרה", "עשרים"];
   var MAXN = 100,
-    GAP = 230,
+    GAP = 150,
     NUMBERS = [],
-    LOOPS = [];
+    LOOPS = [],
+    SDIG = [];
   (function () {
     for (var n = 0; n <= MAXN; n++) {
       var S = [],
-        L = [];
+        L = [],
+        Q = [];
       String(n).split("").forEach(function (ch, i) {
         var d = +ch;
         DIGITS[d].forEach(function (st) {
@@ -206,10 +229,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
             return [p[0] + i * GAP, p[1]];
           }));
           L.push(d === 0);
+          Q.push(d);
         });
       });
       NUMBERS.push(S);
       LOOPS.push(L);
+      SDIG.push(Q);
     }
   })();
   var REV = NUMBERS.map(function (S) {
@@ -263,28 +288,25 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     oops: "אופס, בחרת בטעות את הספרה",
     retry: "בואי ננסה שוב ללחוץ על"
   };
-  var COLORS = ["#6fbf9e", "#e07c97", "#eb9a5c", "#6fb3d8", "#9b82cf", "#e8b84a", "#c982b8", "#5fbdb3", "#e5806a", "#d9708a"];
-  var PASTEL = ["#bfe8d4", "#f9b8c6", "#ffd3a8", "#bfe3f5", "#d8c8f2", "#ffe9a0", "#f0c4e6", "#b5ece6", "#ffc4b0", "#f6a9bd"];
+  var COLORS = ["#8fbf4f", "#e07c97", "#e8b84a", "#6fb3d8", "#9b82cf", "#e8b84a", "#9b82cf", "#6fb3d8", "#8fbf4f", "#e07c97"];
+  var PASTEL = ["#d8f697", "#fdc6ce", "#fdec90", "#c6e6fc", "#edd0f4", "#fdec90", "#edd0f4", "#c6e6fc", "#d8f697", "#fdc6ce"];
   var INK = "#6b4a4a";
   var COLS = [1, 1, 2, 2, 2, 3, 3, 3, 3, 3];
 
   /* ---------- SVG art (no filters: they are too slow on old iPads) ---------- */
+  function digImgs(n, x0) {
+    return String(n).split("").map(function (ch, i) {
+      return '<image xlink:href="../art/' + ch + '.png" x="' + (x0 + i * GAP) + '" y="0" width="200" height="250"/>';
+    }).join("");
+  }
   function digitSVG(d) {
-    var pts = NUMBERS[d].map(function (s) {
-      return s.map(function (p) {
-        return p[0].toFixed(1) + "," + p[1].toFixed(1);
-      }).join(" ");
-    });
-    function L(w, c, extra) {
-      return pts.map(function (p) {
-        return '<polyline points="' + p + '" fill="none" stroke="' + c + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round" ' + (extra || "") + "/>";
-      }).join("");
-    }
-    var vw = Math.max(unitW(d) + 40, 240),
+    var L = String(d).length,
+      visW = (L - 1) * GAP + 116,
+      vw = Math.max(visW + 50, 190),
       vh = vw * 1.25,
-      vx = -20 - (vw - unitW(d) - 40) / 2,
-      vy = (300 - vh) / 2;
-    return '<svg viewBox="' + vx + " " + vy + " " + vw + " " + vh + '">' + L(47, COLORS[ci(d)]) + L(44, PASTEL[ci(d)]) + L(2.6, COLORS[ci(d)], 'stroke-dasharray="9 9" opacity=".7"') + "</svg>";
+      cx = 44 + visW / 2,
+      cy = 128;
+    return '<svg viewBox="' + (cx - vw / 2) + " " + (cy - vh / 2) + " " + vw + " " + vh + '">' + digImgs(d, 0) + "</svg>";
   }
   function FACE(x, y, k) {
     return '<circle cx="' + (x - 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/><circle cx="' + (x + 7 * k) + '" cy="' + y + '" r="' + 2.3 * k + '" fill="' + INK + '"/>' + '<circle cx="' + (x - 11 * k) + '" cy="' + (y + 5 * k) + '" r="' + 3.3 * k + '" fill="#ff8fa3" opacity=".6"/><circle cx="' + (x + 11 * k) + '" cy="' + (y + 5 * k) + '" r="' + 3.3 * k + '" fill="#ff8fa3" opacity=".6"/>' + '<path d="M' + (x - 3 * k) + " " + (y + 3.6 * k) + "Q" + x + " " + (y + 7.4 * k) + " " + (x + 3 * k) + " " + (y + 3.6 * k) + '" fill="none" stroke="' + INK + '" stroke-width="' + 1.7 * k + '" stroke-linecap="round"/>';
@@ -915,9 +937,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     cv.height = Math.round(cvH * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     var uw = unitW(cur);
-    scale = Math.min(cvW / (uw + 65), cvH / 345);
+    scale = Math.min(cvW / (uw + 65), cvH / 295);
     ox = (cvW - uw * scale) / 2;
-    oy = (cvH - 300 * scale) / 2;
+    oy = (cvH - 250 * scale) / 2;
   }
   function layoutFind(barH) {
     var cw = Math.floor(Math.min(W * 0.26, (H - barH) * 0.6 * 0.75)),
@@ -944,31 +966,23 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
       a = nums[0],
       z = nums[nums.length - 1],
       c = COLORS[p % 10],
-      pa = PASTEL[p % 10],
-      DG = 130;
-    var wa = unitW(a),
-      wz = unitW(z),
+      DG = 70;
+    function vis(n) {
+      return (String(n).length - 1) * GAP + 120;
+    }
+    var wa = vis(a),
+      wz = vis(z),
       tot = wa + DG + wz,
-      k = Math.min(272 / tot, 0.4),
+      k = Math.min(280 / tot, 0.42),
       x0 = (300 - tot * k) / 2,
-      y0 = (222 - 300 * k) / 2;
+      y0 = (222 - 250 * k) / 2;
     function draw(n, x) {
-      var pts = NUMBERS[n].map(function (st) {
-        return st.map(function (q) {
-          return q[0].toFixed(1) + "," + q[1].toFixed(1);
-        }).join(" ");
-      });
-      function L(sw, col, ex) {
-        return pts.map(function (t) {
-          return '<polyline points="' + t + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round" ' + (ex || "") + "/>";
-        }).join("");
-      }
-      return '<g transform="translate(' + x + " " + y0 + ") scale(" + k + ')">' + L(47, c) + L(44, pa) + L(2.6, c, 'stroke-dasharray="9 9" opacity=".7"') + "</g>";
+      return '<g transform="translate(' + (x - 40 * k) + " " + y0 + ") scale(" + k + ')">' + digImgs(n, 0) + "</g>";
     }
     var dots = "";
     for (var i = 0; i < nums.length; i++) dots += '<circle cx="' + (150 + (i - (nums.length - 1) / 2) * 15) + '" cy="214" r="4.5" fill="' + (stars[nums[i]] > 0 ? c : "#e6dccd") + '"/>';
     var mx = x0 + (wa + DG / 2) * k;
-    return '<svg viewBox="0 0 300 232">' + draw(a, x0) + '<line x1="' + (mx - 9) + '" y1="' + (y0 + 150 * k) + '" x2="' + (mx + 9) + '" y2="' + (y0 + 150 * k) + '" stroke="' + c + '" stroke-width="7" stroke-linecap="round" opacity=".85"/>' + draw(z, x0 + (wa + DG) * k) + dots + "</svg>";
+    return '<svg viewBox="0 0 300 232">' + draw(a, x0) + '<line x1="' + (mx - 8) + '" y1="' + (y0 + 125 * k) + '" x2="' + (mx + 8) + '" y2="' + (y0 + 125 * k) + '" stroke="' + c + '" stroke-width="7" stroke-linecap="round" opacity=".85"/>' + draw(z, x0 + (wa + DG) * k) + dots + "</svg>";
   }
   function renderHome() {
     var g = $("grid");
@@ -1272,6 +1286,17 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     g.stroke();
     return patCache[color] = ctx.createPattern(c, "repeat");
   }
+  var IMGS = [];
+  (function () {
+    for (var d = 0; d < 10; d++) {
+      var im = new Image();
+      im.onload = function () {
+        dirty = true;
+      };
+      im.src = "../art/" + d + ".png";
+      IMGS.push(im);
+    }
+  })();
   function pathOf(pts, upto) {
     ctx.beginPath();
     var end = upto === undefined ? pts.length - 1 : upto;
@@ -1299,34 +1324,28 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     ctx.lineJoin = "round";
     var S = NUMBERS[cur],
       O = COLORS[ci(cur)],
-      Pp = PASTEL[ci(cur)],
-      Pat = crayon(Pp),
-      PatD = crayon(mixHex(Pp, O, 0.5)),
       i;
     setDash([]);
-    for (i = 0; i < S.length; i++) {
-      pathOf(S[i]);
-      ctx.lineWidth = 47 * scale;
-      ctx.strokeStyle = O;
-      ctx.stroke();
-    }
-    for (i = 0; i < S.length; i++) {
-      pathOf(S[i]);
-      ctx.lineWidth = 44 * scale;
-      ctx.strokeStyle = Pat;
-      ctx.stroke();
+    var dg = String(cur).split("");
+    for (i = 0; i < dg.length; i++) {
+      var im = IMGS[+dg[i]];
+      if (im.complete && im.naturalWidth) ctx.drawImage(im, ox + i * GAP * scale, oy, 200 * scale, 250 * scale);
     }
     for (i = 0; i < S.length; i++) {
       if (done || i < strokeIdx) {
         pathOf(S[i]);
-        ctx.lineWidth = 44 * scale;
-        ctx.strokeStyle = PatD;
+        ctx.lineWidth = 25 * scale;
+        ctx.strokeStyle = COLORS[SDIG[cur][i]];
+        ctx.globalAlpha = 0.62;
         ctx.stroke();
+        ctx.globalAlpha = 1;
       } else if (i === strokeIdx && pos > 0) {
         pathOf(LOOPS[cur][i] && dirRev ? REV[cur][i] : S[i], pos);
-        ctx.lineWidth = 44 * scale;
-        ctx.strokeStyle = PatD;
+        ctx.lineWidth = 25 * scale;
+        ctx.strokeStyle = COLORS[SDIG[cur][i]];
+        ctx.globalAlpha = 0.62;
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
     }
     setDash([9 * scale, 9 * scale]);
@@ -1334,7 +1353,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#fff4e6;font-family:"A
     ctx.globalAlpha = 0.7;
     for (i = 0; i < S.length; i++) {
       pathOf(S[i]);
-      ctx.strokeStyle = O;
+      ctx.strokeStyle = COLORS[SDIG[cur][i]];
       ctx.stroke();
     }
     ctx.globalAlpha = 0.9;

@@ -187,11 +187,11 @@ const RAW=GEO.map(strokes=>strokes.map(cmds=>{
 const DIGITS=RAW.map(strokes=>strokes.map(s=>resample(s,5)));
 const NAMES=["אפס","אחת","שתיים","שלוש","ארבע","חמש","שש","שבע","שמונה","תשע","עשר","אחת עשרה","שתים עשרה","שלוש עשרה","ארבע עשרה","חמש עשרה","שש עשרה","שבע עשרה","שמונה עשרה","תשע עשרה","עשרים"];
 const MAXN=100,GAP=150;
-const NUMBERS=[],LOOPS=[];
+const NUMBERS=[],LOOPS=[],SDIG=[];
 for(let n=0;n<=MAXN;n++){
-  const S=[],L=[];
-  String(n).split("").forEach((ch,i)=>{const d=+ch;DIGITS[d].forEach(st=>{S.push(st.map(p=>[p[0]+i*GAP,p[1]]));L.push(d===0);});});
-  NUMBERS.push(S);LOOPS.push(L);
+  const S=[],L=[],Q=[];
+  String(n).split("").forEach((ch,i)=>{const d=+ch;DIGITS[d].forEach(st=>{S.push(st.map(p=>[p[0]+i*GAP,p[1]]));L.push(d===0);Q.push(d);});});
+  NUMBERS.push(S);LOOPS.push(L);SDIG.push(Q);
 }
 const REV=NUMBERS.map(S=>S.map(st=>st.slice().reverse()));
 const unitW=n=>200+(String(n).length-1)*GAP;
@@ -653,11 +653,11 @@ function frame(t){
     String(cur).split("").forEach((ch,i)=>{const im=IMGS[+ch];if(im.complete&&im.naturalWidth)ctx.drawImage(im,ox+i*GAP*scale,oy,200*scale,250*scale);});
     ctx.restore();
     DR.forEach((s,i)=>{
-      if(done||i<strokeIdx){pathOf(s);ctx.lineWidth=25*scale;ctx.strokeStyle=O;ctx.globalAlpha=.62;ctx.stroke();ctx.globalAlpha=1;}
-      else if(i===strokeIdx&&pos>0){pathOf(dpts(i),pos);ctx.lineWidth=25*scale;ctx.strokeStyle=O;ctx.globalAlpha=.62;ctx.stroke();ctx.globalAlpha=1;}
+      if(done||i<strokeIdx){pathOf(s);ctx.lineWidth=25*scale;ctx.strokeStyle=COLORS[SDIG[cur][i]];ctx.globalAlpha=.62;ctx.stroke();ctx.globalAlpha=1;}
+      else if(i===strokeIdx&&pos>0){pathOf(dpts(i),pos);ctx.lineWidth=25*scale;ctx.strokeStyle=COLORS[SDIG[cur][i]];ctx.globalAlpha=.62;ctx.stroke();ctx.globalAlpha=1;}
     });
     ctx.setLineDash([9*scale,9*scale]);ctx.lineWidth=2.6*scale;ctx.globalAlpha=.7;
-    DR.forEach(s=>{pathOf(s);ctx.strokeStyle=O;ctx.stroke();});
+    DR.forEach((s,i)=>{pathOf(s);ctx.strokeStyle=COLORS[SDIG[cur][i]];ctx.stroke();});
     ctx.globalAlpha=.9;
     DR.forEach((s,i)=>{
       if(done||i<strokeIdx){pathOf(s);ctx.strokeStyle="#fff";ctx.stroke();}
