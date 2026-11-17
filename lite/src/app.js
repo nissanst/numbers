@@ -526,27 +526,23 @@ function drawPlay() {
 }
 
 /* ---------- sprinkles / hearts / sparkles ---------- */
+var FXN = ["confetti-butter", "confetti-lilac", "confetti-rose", "confetti-sky", "confetti-butter", "confetti-lilac", "confetti-rose", "confetti-sky", "heart-filled", "heart-filled", "heart-outline", "sparkle-butter", "sparkle-butter", "sparkle-outline", "star-lilac", "cross-butter"], FXIMG = {};
+FXN.forEach(function (n) { if (!FXIMG[n]) { var im = new Image(); im.src = "../art/fx/" + n + ".png"; FXIMG[n] = im; } });
 function confetti() {
-  var SP = ["#b7a0dd", "#f78fa7", "#ffcf5a", "#8fd9c0", "#ffb59a", "#8fc6e3"], K = Math.max(1, Math.min(W, H) / 380);
-  function mk(x, y, vx, vy, i) {
-    var r = Math.random(), t = r < 0.5 ? "dash" : r < 0.7 ? "heart" : r < 0.9 ? "spark" : "dot";
-    return { x: x, y: y, vx: vx, vy: vy, t: t, c: t === "spark" ? "#ffcf5a" : t === "heart" ? (i % 2 ? "#f78fa7" : "#ffb0c4") : SP[i % SP.length], len: (9 + Math.random() * 7) * K, wid: (2.8 + Math.random() * 1.6) * K, s: (t === "heart" ? 4.5 + Math.random() * 2.5 : t === "spark" ? 5 + Math.random() * 4 : 2 + Math.random() * 1.5) * K, rot: Math.random() * 3, vr: (Math.random() - 0.5) * 0.2, life: 110 + Math.random() * 50 };
-  }
+  var K = Math.min(2.2, Math.max(1, Math.min(W, H) / 380));
+  function mk(x, y, vx, vy) { return { x: x, y: y, vx: vx, vy: vy, im: FXIMG[FXN[Math.floor(Math.random() * FXN.length)]], s: (20 + Math.random() * 16) * K, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 0.16, life: 110 + Math.random() * 50 }; }
   var i;
-  for (i = 0; i < 40; i++) particles.push(mk(W / 2, H * 0.5, (Math.random() - 0.5) * 20, -Math.random() * 15 - 3, i));
-  for (i = 0; i < 50; i++) particles.push(mk(Math.random() * W, -20 - Math.random() * H * 0.6, (Math.random() - 0.5) * 2, 1 + Math.random() * 3, i));
+  for (i = 0; i < 30; i++) particles.push(mk(W / 2, H * 0.5, (Math.random() - 0.5) * 20, -Math.random() * 15 - 3));
+  for (i = 0; i < 40; i++) particles.push(mk(Math.random() * W, -20 - Math.random() * H * 0.6, (Math.random() - 0.5) * 2, 1 + Math.random() * 3));
 }
 function drawFx() {
   fctx.clearRect(0, 0, W, H);
   particles = particles.filter(function (p) { return p.life > 0; });
   for (var i = 0; i < particles.length; i++) {
-    var p = particles[i];
+    var p = particles[i], im = p.im;
     p.x += p.vx; p.y += p.vy; p.vy = Math.min(p.vy + 0.2, 5); p.vx *= 0.99; p.rot += p.vr; p.life--;
-    fctx.save(); fctx.globalAlpha = Math.min(1, p.life / 30); fctx.translate(p.x, p.y); fctx.rotate(p.rot); fctx.fillStyle = p.c; fctx.strokeStyle = p.c; fctx.lineCap = "round";
-    if (p.t === "dash") { fctx.lineWidth = p.wid; fctx.beginPath(); fctx.moveTo(-p.len / 2, 0); fctx.lineTo(p.len / 2, 0); fctx.stroke(); }
-    else if (p.t === "dot") { fctx.beginPath(); fctx.arc(0, 0, p.s, 0, 7); fctx.fill(); }
-    else if (p.t === "spark") { sparkPath(fctx, p.s); fctx.fill(); }
-    else { var r = p.s; fctx.beginPath(); fctx.moveTo(0, r * 0.9); fctx.bezierCurveTo(-r * 1.6, -r * 0.1, -r * 0.7, -r * 1.2, 0, -r * 0.4); fctx.bezierCurveTo(r * 0.7, -r * 1.2, r * 1.6, -r * 0.1, 0, r * 0.9); fctx.fill(); }
+    fctx.save(); fctx.globalAlpha = Math.min(1, p.life / 30); fctx.translate(p.x, p.y); fctx.rotate(p.rot);
+    if (im.complete && im.naturalWidth) { var hh = p.s * im.naturalHeight / im.naturalWidth; fctx.drawImage(im, -p.s / 2, -hh / 2, p.s, hh); }
     fctx.restore();
   }
 }
@@ -584,7 +580,7 @@ function nextRound() {
   later(function () { sayName("prompt", function () { sayName(target); }); }, 300);
 }
 
-window.__numdbg = function () { return { NUMBERS: NUMBERS, LOOPS: LOOPS, REV: REV, ox: ox, oy: oy, scale: scale, done: done, cur: cur, pos: pos, strokeIdx: strokeIdx, target: target, particles: particles.length, stars: stars }; };
+window.__numdbg = function () { return { confetti: confetti, fx: FXIMG, NUMBERS: NUMBERS, LOOPS: LOOPS, REV: REV, ox: ox, oy: oy, scale: scale, done: done, cur: cur, pos: pos, strokeIdx: strokeIdx, target: target, particles: particles.length, stars: stars }; };
 
 /* ---------- parents screen: import voices (recording and export are not possible on iOS 9) ---------- */
 function layoutRec(barH) {

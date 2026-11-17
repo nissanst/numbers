@@ -602,6 +602,8 @@ let FW=0,FH=0;
 function resizeFx(){const dpr=1;FW=window.innerWidth;FH=window.innerHeight;fx.width=FW*dpr;fx.height=FH*dpr;fctx.setTransform(dpr,0,0,dpr,0,0);}
 window.addEventListener("resize",resizeFx);resizeFx();
 function sparkPath(g,r){g.beginPath();g.moveTo(0,-r);g.quadraticCurveTo(0,0,r,0);g.quadraticCurveTo(0,0,0,r);g.quadraticCurveTo(0,0,-r,0);g.quadraticCurveTo(0,0,0,-r);g.closePath();}
+const FXN=["confetti-butter","confetti-lilac","confetti-rose","confetti-sky","confetti-butter","confetti-lilac","confetti-rose","confetti-sky","heart-filled","heart-filled","heart-outline","sparkle-butter","sparkle-butter","sparkle-outline","star-lilac","cross-butter"];
+const FXIMG={};FXN.forEach(n=>{if(!FXIMG[n]){const im=new Image();im.src="art/fx/"+n+".png";FXIMG[n]=im;}});
 let fxHad=false;
 function drawFx(){
   if(!particles.length&&!fxHad)return;
@@ -611,23 +613,15 @@ function drawFx(){
   particles.forEach(p=>{
     p.x+=p.vx;p.y+=p.vy;p.vy=Math.min(p.vy+.2,5);p.vx*=.99;p.rot+=p.vr;p.life--;
     fctx.save();fctx.globalAlpha=Math.min(1,p.life/30);fctx.translate(p.x,p.y);fctx.rotate(p.rot);
-    fctx.fillStyle=p.c;fctx.strokeStyle=p.c;fctx.lineCap="round";
-    if(p.t==="dash"){fctx.lineWidth=p.wid;fctx.beginPath();fctx.moveTo(-p.len/2,0);fctx.lineTo(p.len/2,0);fctx.stroke();}
-    else if(p.t==="dot"){fctx.beginPath();fctx.arc(0,0,p.s,0,7);fctx.fill();}
-    else if(p.t==="spark"){sparkPath(fctx,p.s);if(p.o){fctx.lineWidth=p.lw;fctx.lineJoin="round";fctx.stroke();}else fctx.fill();}
-    else{const r=p.s;fctx.beginPath();fctx.moveTo(0,r*.9);fctx.bezierCurveTo(-r*1.6,-r*.1,-r*.7,-r*1.2,0,-r*.4);fctx.bezierCurveTo(r*.7,-r*1.2,r*1.6,-r*.1,0,r*.9);if(p.o){fctx.lineWidth=p.lw;fctx.lineJoin="round";fctx.stroke();}else fctx.fill();}
+    const im=p.im;if(im.complete&&im.naturalWidth)fctx.drawImage(im,-p.s/2,-p.s*im.naturalHeight/im.naturalWidth/2,p.s,p.s*im.naturalHeight/im.naturalWidth);
     fctx.restore();
   });
 }
 function confetti(){
-  const SP=["#b7a0dd","#f78fa7","#ffcf5a","#8fd9c0","#ffb59a","#8fc6e3"];
-  const K=Math.max(1,Math.min(FW,FH)/380);
-  const mk=(x,y,vx,vy,i)=>{
-    const r=Math.random(),t=r<.5?"dash":r<.68?"heart":r<.86?"spark":"dot";
-    return {x,y,vx,vy,t,c:t==="spark"?"#ffcf5a":t==="heart"?(i%2?"#f78fa7":"#ffb0c4"):SP[i%SP.length],len:(9+Math.random()*7)*K,wid:(2.8+Math.random()*1.6)*K,s:(t==="heart"?4.5+Math.random()*2.5:t==="spark"?5+Math.random()*4:2+Math.random()*1.5)*K,o:(t==="heart"||t==="spark")&&Math.random()<.35,lw:1.7*K,rot:(Math.random()-.5)*1.2+(t==="dash"?Math.random()*Math.PI:0),vr:(Math.random()-.5)*(t==="dash"?.22:.08),life:130+Math.random()*60};
-  };
-  for(let i=0;i<80;i++)particles.push(mk(FW/2,FH*.5,(Math.random()-.5)*20,-Math.random()*15-3,i));
-  for(let i=0;i<150;i++)particles.push(mk(Math.random()*FW,-20-Math.random()*FH*.6,(Math.random()-.5)*2,1+Math.random()*3,i));
+  const K=Math.min(2.2,Math.max(1,Math.min(FW,FH)/380));
+  const mk=(x,y,vx,vy)=>({x,y,vx,vy,im:FXIMG[FXN[Math.floor(Math.random()*FXN.length)]],s:(20+Math.random()*16)*K,rot:Math.random()*6.3,vr:(Math.random()-.5)*.16,life:130+Math.random()*60});
+  for(let i=0;i<50;i++)particles.push(mk(FW/2,FH*.5,(Math.random()-.5)*20,-Math.random()*15-3));
+  for(let i=0;i<70;i++)particles.push(mk(Math.random()*FW,-20-Math.random()*FH*.6,(Math.random()-.5)*2,1+Math.random()*3));
 }
 
 function pathOf(pts,upto){
